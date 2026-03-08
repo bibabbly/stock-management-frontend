@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: 'https://stock-management-backend-production-6c53.up.railway.app/api',
 })
 
 // Automatically attach token to every request
