@@ -2,18 +2,34 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAttachMoney, MdPointOfSale, MdInventory, MdPeople, MdWarning, MdTrendingUp } from 'react-icons/md'
+import {
+  MdAttachMoney, MdPointOfSale, MdInventory,
+  MdPeople, MdWarning, MdTrendingUp, MdTrendingDown
+} from 'react-icons/md'
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, gradient, trend }) {
   return (
-    <div className="bg-white rounded-lg shadow p-5 flex items-center gap-4">
-      <div className={`p-3 rounded-full ${color}`}>
+    <div className="bg-white rounded-xl p-5 flex items-center gap-4"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: gradient }}>
         {icon}
       </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-700">{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium mb-1" style={{ color: '#94a3b8' }}>{label}</p>
+        <p className="text-xl font-bold truncate" style={{ color: '#0f172a' }}>{value}</p>
       </div>
+    </div>
+  )
+}
+
+function BigCard({ label, value, valueColor, sub }) {
+  return (
+    <div className="bg-white rounded-xl p-6"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
+      <p className="text-sm font-medium mb-2" style={{ color: '#64748b' }}>{label}</p>
+      <p className="text-3xl font-bold mb-1" style={{ color: valueColor }}>{value}</p>
+      {sub && <p className="text-xs" style={{ color: '#94a3b8' }}>{sub}</p>}
     </div>
   )
 }
@@ -30,100 +46,131 @@ function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <Layout><p className="text-gray-500">Loading...</p></Layout>
+  if (loading) return (
+    <Layout>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-3" />
+          <p style={{ color: '#94a3b8' }}>Loading dashboard...</p>
+        </div>
+      </div>
+    </Layout>
+  )
 
   return (
     <Layout>
-      <h1 className="text-2xl font-bold text-gray-700 mb-6">Dashboard</h1>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Dashboard</h1>
+        <p className="text-sm" style={{ color: '#94a3b8' }}>
+          {new Date().toLocaleDateString('en-RW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
+      </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* Today Stats */}
+      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Today</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <StatCard
-          icon={<MdAttachMoney size={24} className="text-white" />}
+          icon={<MdAttachMoney size={22} className="text-white" />}
           label="Today's Revenue"
           value={`RWF ${data?.todayRevenue?.toLocaleString() || 0}`}
-          color="bg-blue-500"
+          gradient="linear-gradient(135deg, #3b82f6, #06b6d4)"
         />
         <StatCard
-          icon={<MdPointOfSale size={24} className="text-white" />}
+          icon={<MdPointOfSale size={22} className="text-white" />}
           label="Today's Sales"
           value={data?.todaySalesCount || 0}
-          color="bg-green-500"
+          gradient="linear-gradient(135deg, #10b981, #34d399)"
         />
         <StatCard
-          icon={<MdTrendingUp size={24} className="text-white" />}
+          icon={<MdTrendingUp size={22} className="text-white" />}
           label="Today's Profit"
           value={`RWF ${data?.todayProfit?.toLocaleString() || 0}`}
-          color="bg-teal-500"
-        />
-        <StatCard
-          icon={<MdInventory size={24} className="text-white" />}
-          label="Total Products"
-          value={data?.totalProducts || 0}
-          color="bg-purple-500"
-        />
-        <StatCard
-          icon={<MdPeople size={24} className="text-white" />}
-          label="Total Suppliers"
-          value={data?.totalSuppliers || 0}
-          color="bg-orange-500"
-        />
-        <StatCard
-          icon={<MdTrendingUp size={24} className="text-white" />}
-          label="This Month's Profit"
-          value={`RWF ${data?.monthProfit?.toLocaleString() || 0}`}
-          color="bg-pink-500"
+          gradient="linear-gradient(135deg, #8b5cf6, #a78bfa)"
         />
       </div>
 
-      {/* Monthly Revenue & Purchase Cost */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow p-5">
-          <h2 className="text-lg font-semibold text-gray-700 mb-1">This Month's Revenue</h2>
-          <p className="text-3xl font-bold text-blue-600">
-            RWF {data?.monthRevenue?.toLocaleString() || 0}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg shadow p-5">
-          <h2 className="text-lg font-semibold text-gray-700 mb-1">This Month's Purchase Cost</h2>
-          <p className="text-3xl font-bold text-red-500">
-            RWF {data?.monthPurchaseCost?.toLocaleString() || 0}
-          </p>
-        </div>
+      {/* Overview Stats */}
+      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Overview</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          icon={<MdInventory size={22} className="text-white" />}
+          label="Total Products"
+          value={data?.totalProducts || 0}
+          gradient="linear-gradient(135deg, #f59e0b, #fbbf24)"
+        />
+        <StatCard
+          icon={<MdPeople size={22} className="text-white" />}
+          label="Total Suppliers"
+          value={data?.totalSuppliers || 0}
+          gradient="linear-gradient(135deg, #ec4899, #f472b6)"
+        />
+        <StatCard
+          icon={<MdTrendingUp size={22} className="text-white" />}
+          label="This Month's Profit"
+          value={`RWF ${data?.monthProfit?.toLocaleString() || 0}`}
+          gradient="linear-gradient(135deg, #06b6d4, #67e8f9)"
+        />
+      </div>
+
+      {/* Monthly Revenue & Cost */}
+      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>This Month</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <BigCard
+          label="Monthly Revenue"
+          value={`RWF ${data?.monthRevenue?.toLocaleString() || 0}`}
+          valueColor="#3b82f6"
+          sub="Total income this month"
+        />
+        <BigCard
+          label="Monthly Purchase Cost"
+          value={`RWF ${data?.monthPurchaseCost?.toLocaleString() || 0}`}
+          valueColor="#ef4444"
+          sub="Total stock cost this month"
+        />
       </div>
 
       {/* Low Stock Alert */}
       {data?.lowStockProducts?.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-5">
+        <div className="bg-white rounded-xl p-5"
+          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #fecaca' }}>
           <div className="flex items-center gap-2 mb-4">
-            <MdWarning size={22} className="text-red-500" />
-            <h2 className="text-lg font-semibold text-gray-700">
-              Low Stock Alert ({data.lowStockCount})
-            </h2>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: '#fef2f2' }}>
+              <MdWarning size={18} className="text-red-500" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-gray-800">Low Stock Alert</h2>
+              <p className="text-xs text-red-500">{data.lowStockCount} product(s) need restocking</p>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b">
-                <th className="pb-2">Product</th>
-                <th className="pb-2">Category</th>
-                <th className="pb-2">Quantity</th>
-                <th className="pb-2">Min Stock</th>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Product</th>
+                <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Category</th>
+                <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Qty</th>
+                <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Min Stock</th>
               </tr>
             </thead>
             <tbody>
               {data.lowStockProducts.map(product => (
-                <tr key={product.id} className="border-b last:border-0">
-                  <td className="py-2 font-medium">{product.name}</td>
-                  <td className="py-2 text-gray-500">{product.category}</td>
-                  <td className="py-2 text-red-500 font-bold">{product.quantity}</td>
-                  <td className="py-2">{product.minStock}</td>
+                <tr key={product.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                  <td className="py-2 font-medium text-gray-800">{product.name}</td>
+                  <td className="py-2 text-xs" style={{ color: '#94a3b8' }}>{product.category}</td>
+                  <td className="py-2">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold"
+                      style={{ background: '#fef2f2', color: '#ef4444' }}>
+                      {product.quantity}
+                    </span>
+                  </td>
+                  <td className="py-2 text-xs" style={{ color: '#64748b' }}>{product.minStock}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-
     </Layout>
   )
 }
