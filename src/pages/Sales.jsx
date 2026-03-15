@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdClose } from 'react-icons/md'
+import { MdAdd, MdClose, MdPointOfSale, MdPrint } from 'react-icons/md'
 import Receipt from '../components/Receipt'
 
 function Sales() {
@@ -10,7 +10,7 @@ function Sales() {
   const [sales, setSales] = useState([])
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [showModal, setShowModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('CASH')
   const [items, setItems] = useState([{ productId: '', quantity: 1 }])
   const [selectedSale, setSelectedSale] = useState(null)
@@ -28,33 +28,31 @@ function Sales() {
     api.get(`/products/shop/${shopId}`).then(res => setProducts(res.data))
   }, [])
 
-  const addItem = () => {
-    setItems([...items, { productId: '', quantity: 1 }])
-  }
-
-  const removeItem = (index) => {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
+  const addItem = () => setItems([...items, { productId: '', quantity: 1 }])
+  const removeItem = (index) => setItems(items.filter((_, i) => i !== index))
   const updateItem = (index, field, value) => {
     const updated = [...items]
     updated[index][field] = value
     setItems(updated)
   }
 
+  // Calculate total for current form
+  const formTotal = items.reduce((sum, item) => {
+    const product = products.find(p => p.id === parseInt(item.productId))
+    return sum + (product ? product.sellingPrice * parseInt(item.quantity || 0) : 0)
+  }, 0)
+
   const handleSubmit = async () => {
     setError('')
     try {
       await api.post('/sales', {
-        shopId: shopId,
-        userId: userId,
-        paymentMethod,
+        shopId, userId, paymentMethod,
         items: items.map(i => ({
           productId: parseInt(i.productId),
           quantity: parseInt(i.quantity)
         }))
       })
-      setShowForm(false)
+      setShowModal(false)
       setItems([{ productId: '', quantity: 1 }])
       setPaymentMethod('CASH')
       fetchSales()
@@ -63,142 +61,99 @@ function Sales() {
     }
   }
 
+  const paymentColors = {
+    CASH: { bg: '#f0fdf4', color: '#16a34a' },
+    MOMO: { bg: '#fef3c7', color: '#d97706' },
+    BANK: { bg: '#eff6ff', color: '#3b82f6' },
+  }
+
   return (
     <Layout>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-700">Sales</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Sales</h1>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>{sales.length} total transactions</p>
+        </div>
         <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
         >
           <MdAdd size={20} /> New Sale
         </button>
       </div>
 
-      {/* New Sale Form */}
-      {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">New Sale</h2>
-
-          {error && (
-            <div className="bg-red-100 text-red-600 p-3 rounded mb-4 text-sm">{error}</div>
-          )}
-
-          {/* Payment Method */}
-          <div className="mb-4">
-            <label className="block text-sm text-gray-600 mb-1">Payment Method</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-            >
-              <option value="CASH">Cash</option>
-              <option value="MOMO">MoMo</option>
-              <option value="BANK">Bank</option>
-            </select>
-          </div>
-
-          {/* Items */}
-          <div className="mb-4">
-            <label className="block text-sm text-gray-600 mb-2">Products</label>
-            {items.map((item, index) => (
-              <div key={index} className="flex gap-3 mb-2 items-center">
-                <select
-                  value={item.productId}
-                  onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                  className="flex-1 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">Select product</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (Stock: {p.quantity}) - RWF {p.sellingPrice?.toLocaleString()}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min="1"
-                  value={item.quantity}
-                  onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                  className="w-24 border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                  placeholder="Qty"
-                />
-                {items.length > 1 && (
-                  <button onClick={() => removeItem(index)} className="text-red-500 hover:text-red-700">
-                    <MdClose size={20} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={addItem}
-              className="text-blue-600 text-sm mt-1 hover:underline"
-            >
-              + Add another product
-            </button>
-          </div>
-
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={handleSubmit}
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-            >
-              Save Sale
-            </button>
-            <button
-              onClick={() => { setShowForm(false); setError('') }}
-              className="bg-gray-200 text-gray-700 px-6 py-2 rounded hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Sales Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-xl overflow-hidden"
+        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-left">
-            <tr>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Items</th>
-              <th className="px-4 py-3">Payment</th>
-              <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Action</th>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+              {['Date & Time', 'Items', 'Payment', 'Total', 'Action'].map(h => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: '#94a3b8' }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="text-center py-6 text-gray-400">Loading...</td></tr>
+              <tr><td colSpan="5" className="text-center py-16">
+                <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
+                <p style={{ color: '#94a3b8' }}>Loading sales...</p>
+              </td></tr>
             ) : sales.length === 0 ? (
-              <tr><td colSpan="5" className="text-center py-6 text-gray-400">No sales found</td></tr>
+              <tr><td colSpan="5" className="text-center py-16">
+                <MdPointOfSale size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
+                <p style={{ color: '#94a3b8' }}>No sales yet</p>
+              </td></tr>
             ) : (
-              sales.map(sale => (
-                <tr key={sale.id} className="border-t hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(sale.date).toLocaleString()}
+              sales.map((sale, i) => (
+                <tr key={sale.id}
+                  style={{ borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                >
+                  <td className="px-5 py-3.5">
+                    <p className="font-medium text-sm" style={{ color: '#0f172a' }}>
+                      {new Date(sale.date).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>
+                      {new Date(sale.date).toLocaleTimeString()}
+                    </p>
                   </td>
-                  <td className="px-4 py-3">
-                    {sale.items?.map(item => (
-                      <span key={item.id} className="block">
-                        {item.product?.name} x{item.quantity}
-                      </span>
-                    ))}
+                  <td className="px-5 py-3.5">
+                    <div className="flex flex-wrap gap-1">
+                      {sale.items?.map(item => (
+                        <span key={item.id}
+                          className="px-2 py-0.5 rounded-full text-xs"
+                          style={{ background: '#f1f5f9', color: '#64748b' }}>
+                          {item.product?.name} ×{item.quantity}
+                        </span>
+                      ))}
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                  <td className="px-5 py-3.5">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                        color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                      }}>
                       {sale.paymentMethod}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-bold text-blue-600">
+                  <td className="px-5 py-3.5 font-bold" style={{ color: '#0f172a' }}>
                     RWF {sale.totalAmount?.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-3.5">
                     <button
                       onClick={() => setSelectedSale(sale)}
-                      className="text-blue-500 hover:text-blue-700 text-xs"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                      style={{ background: '#eff6ff', color: '#3b82f6' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#dbeafe'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#eff6ff'}
                     >
-                      🖨️ Print
+                      <MdPrint size={14} /> Print
                     </button>
                   </td>
                 </tr>
@@ -208,14 +163,139 @@ function Sales() {
         </table>
       </div>
 
-      {/* Receipt Modal */}
-      {selectedSale && (
-        <Receipt
-          sale={selectedSale}
-          onClose={() => setSelectedSale(null)}
-        />
+      {/* New Sale Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4"
+              style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <h2 className="text-lg font-bold" style={{ color: '#0f172a' }}>New Sale</h2>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>Add products and complete the sale</p>
+              </div>
+              <button onClick={() => { setShowModal(false); setError('') }}
+                className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Payment Method */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
+                  Payment Method
+                </label>
+                <div className="flex gap-2">
+                  {['CASH', 'MOMO', 'BANK'].map(method => (
+                    <button key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: paymentMethod === method
+                          ? 'linear-gradient(135deg, #3b82f6, #06b6d4)'
+                          : '#f8fafc',
+                        color: paymentMethod === method ? 'white' : '#64748b',
+                        border: paymentMethod === method ? 'none' : '2px solid #f1f5f9'
+                      }}>
+                      {method === 'CASH' ? '💵' : method === 'MOMO' ? '📱' : '🏦'} {method}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Items */}
+              <div className="mb-4">
+                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
+                  Products
+                </label>
+                <div className="space-y-2">
+                  {items.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <select
+                        value={item.productId}
+                        onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                        className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                        style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                        onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={e => e.target.style.borderColor = '#f1f5f9'}
+                      >
+                        <option value="">Select product</option>
+                        {products.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} (Stock: {p.quantity}) — RWF {p.sellingPrice?.toLocaleString()}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number" min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                        className="w-20 rounded-xl px-3 py-2.5 text-sm focus:outline-none text-center"
+                        style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                        onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                        onBlur={e => e.target.style.borderColor = '#f1f5f9'}
+                        placeholder="Qty"
+                      />
+                      {items.length > 1 && (
+                        <button onClick={() => removeItem(index)}
+                          className="p-2 rounded-xl"
+                          style={{ color: '#ef4444', background: '#fef2f2' }}>
+                          <MdClose size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addItem}
+                  className="mt-2 text-xs font-semibold flex items-center gap-1"
+                  style={{ color: '#3b82f6' }}>
+                  <MdAdd size={16} /> Add another product
+                </button>
+              </div>
+
+              {/* Total Preview */}
+              {formTotal > 0 && (
+                <div className="rounded-xl p-4 flex items-center justify-between"
+                  style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
+                  <span className="text-sm font-semibold" style={{ color: '#64748b' }}>Total Amount</span>
+                  <span className="text-xl font-bold" style={{ color: '#3b82f6' }}>
+                    RWF {formTotal.toLocaleString()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+              <button onClick={handleSubmit}
+                className="flex-1 text-white py-2.5 rounded-xl font-semibold text-sm"
+                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                Complete Sale
+              </button>
+              <button onClick={() => { setShowModal(false); setError('') }}
+                className="px-6 py-2.5 rounded-xl font-semibold text-sm"
+                style={{ background: '#f1f5f9', color: '#64748b' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
+      {/* Receipt Modal */}
+      {selectedSale && (
+        <Receipt sale={selectedSale} onClose={() => setSelectedSale(null)} />
+      )}
     </Layout>
   )
 }
