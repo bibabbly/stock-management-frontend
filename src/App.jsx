@@ -13,6 +13,8 @@ import SalesReport from './pages/SalesReport'
 import PurchaseReport from './pages/PurchaseReport'
 import Register from './pages/Register'
 import RegisterShop from './pages/RegisterShop'
+import Roles from './pages/Roles'
+import Users from './pages/Users'
 
 // Protects pages from unauthenticated access
 function PrivateRoute({ children }) {
@@ -35,6 +37,8 @@ function App() {
         <Route path="/purchase-report" element={<PrivateRoute><PurchaseReport /></PrivateRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/register-shop" element={<RegisterShop />} />
+          <Route path="/roles" element={<Roles />} />
+          <Route path="/users" element={<Users />} />
       </Routes>
     </AuthProvider>
   )

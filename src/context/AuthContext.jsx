@@ -28,8 +28,21 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token')
   }
 
+  // ADMIN has access to everything, others check permissions list
+  const hasPermission = (page) => {
+    if (!user) return false
+    if (user.role === 'ADMIN') return true
+    if (!user.permissions) return false
+    return user.permissions.includes(page)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, shopId: user?.shopId, userId: user?.userId }}>
+    <AuthContext.Provider value={{
+      user, token, login, logout,
+      shopId: user?.shopId,
+      userId: user?.userId,
+      hasPermission
+    }}>
       {children}
     </AuthContext.Provider>
   )

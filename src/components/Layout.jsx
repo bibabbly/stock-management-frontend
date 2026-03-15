@@ -4,11 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
   MdSwapVert, MdMenu, MdLogout, MdSettings,
-  MdAssessment, MdShoppingCart, MdClose
+  MdAssessment, MdShoppingCart, MdGroup, MdAdminPanelSettings
 } from 'react-icons/md'
 
 function Layout({ children }) {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -17,16 +17,21 @@ function Layout({ children }) {
     navigate('/login')
   }
 
-  const navItems = [
-    { path: '/', icon: <MdDashboard size={20} />, label: 'Dashboard' },
-    { path: '/products', icon: <MdInventory size={20} />, label: 'Products' },
-    { path: '/sales', icon: <MdPointOfSale size={20} />, label: 'Sales' },
-    { path: '/suppliers', icon: <MdPeople size={20} />, label: 'Suppliers' },
-    { path: '/stock-movements', icon: <MdSwapVert size={20} />, label: 'Stock Movements' },
-    { path: '/settings', icon: <MdSettings size={20} />, label: 'Settings' },
-    { path: '/sales-report', icon: <MdAssessment size={20} />, label: 'Sales Report' },
-    { path: '/purchase-report', icon: <MdShoppingCart size={20} />, label: 'Purchase Report' },
+  const allNavItems = [
+    { path: '/', icon: <MdDashboard size={20} />, label: 'Dashboard', page: 'DASHBOARD' },
+    { path: '/products', icon: <MdInventory size={20} />, label: 'Products', page: 'PRODUCTS' },
+    { path: '/sales', icon: <MdPointOfSale size={20} />, label: 'Sales', page: 'SALES' },
+    { path: '/suppliers', icon: <MdPeople size={20} />, label: 'Suppliers', page: 'SUPPLIERS' },
+    { path: '/stock-movements', icon: <MdSwapVert size={20} />, label: 'Stock Movements', page: 'STOCK_MOVEMENTS' },
+    { path: '/settings', icon: <MdSettings size={20} />, label: 'Settings', page: 'SETTINGS' },
+    { path: '/sales-report', icon: <MdAssessment size={20} />, label: 'Sales Report', page: 'SALES_REPORT' },
+    { path: '/purchase-report', icon: <MdShoppingCart size={20} />, label: 'Purchase Report', page: 'PURCHASE_REPORT' },
+    { path: '/users', icon: <MdGroup size={20} />, label: 'Users', page: 'USERS' },
+    { path: '/roles', icon: <MdAdminPanelSettings size={20} />, label: 'Roles', page: 'ROLES' },
   ]
+
+  // Filter nav items based on user permissions
+  const navItems = allNavItems.filter(item => hasPermission(item.page))
 
   return (
     <div className="flex h-screen" style={{ background: '#f1f5f9' }}>
@@ -59,9 +64,7 @@ function Layout({ children }) {
               end={item.path === '/'}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm ${
-                  isActive
-                    ? 'text-white font-medium'
-                    : 'hover:text-white'
+                  isActive ? 'text-white font-medium' : 'hover:text-white'
                 }`
               }
               style={({ isActive }) => ({

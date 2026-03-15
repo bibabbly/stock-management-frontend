@@ -19,13 +19,14 @@ function Login() {
     setError('')
     try {
       const response = await api.post('/auth/login', { email, password })
-      const userData = {
-        email: response.data.email,
-        role: response.data.role,
-        shopName: response.data.shopName,
-        userId: response.data.userId,
-        shopId: response.data.shopId
-      }
+   const userData = {
+  email: response.data.email,
+  role: response.data.role,
+  shopName: response.data.shopName,
+  userId: response.data.userId,
+  shopId: response.data.shopId,
+  permissions: response.data.permissions || []
+}
       login(userData, response.data.token)
       navigate('/')
     } catch (err) {
