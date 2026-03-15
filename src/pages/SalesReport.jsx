@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
+import { MdPrint, MdAssessment, MdCalendarToday } from 'react-icons/md'
 
 function SalesReport() {
   const { shopId } = useAuth()
@@ -21,12 +22,9 @@ function SalesReport() {
         api.get(`/shops/${shopId}`)
       ])
       setShop(shopRes.data)
-
-      // Filter by date range on frontend
       const filtered = salesRes.data.filter(sale => {
         const saleDate = new Date(sale.date)
-        return saleDate >= new Date(startDate) &&
-               saleDate <= new Date(endDate + 'T23:59:59')
+        return saleDate >= new Date(startDate) && saleDate <= new Date(endDate + 'T23:59:59')
       })
       setSales(filtered)
       setSearched(true)
@@ -40,67 +38,75 @@ function SalesReport() {
   const totalRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0)
   const totalItems = sales.reduce((sum, s) => sum + (s.items?.length || 0), 0)
 
-  const handlePrint = () => window.print()
+  const paymentColors = {
+    CASH: { bg: '#f0fdf4', color: '#16a34a' },
+    MOMO: { bg: '#fef3c7', color: '#d97706' },
+    BANK: { bg: '#eff6ff', color: '#3b82f6' },
+  }
 
   return (
     <Layout>
-      <div className="flex justify-between items-center mb-6 no-print">
-        <h1 className="text-2xl font-bold text-gray-700">Sales Report</h1>
+      <style>{`@media print { .no-print { display: none !important; } #report { padding: 20px; } }`}</style>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 no-print">
+        <div>
+          <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Sales Report</h1>
+          <p className="text-sm" style={{ color: '#94a3b8' }}>Generate and print sales reports by date range</p>
+        </div>
         {searched && sales.length > 0 && (
-          <button
-            onClick={handlePrint}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-          >
-            🖨️ Print Report
+          <button onClick={() => window.print()}
+            className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold no-print"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
+            <MdPrint size={18} /> Print Report
           </button>
         )}
       </div>
 
       {/* Date Filter */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 flex gap-4 items-end no-print">
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">From Date</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-          />
+      <div className="bg-white rounded-xl p-5 mb-6 no-print"
+        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div className="flex gap-4 items-end flex-wrap">
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>From Date</label>
+            <div className="relative">
+              <MdCalendarToday size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>To Date</label>
+            <div className="relative">
+              <MdCalendarToday size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+            </div>
+          </div>
+          <button onClick={fetchReport} disabled={loading || !startDate || !endDate}
+            className="flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+            {loading ? (
+              <><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> Generating...</>
+            ) : (
+              <><MdAssessment size={18} /> Generate Report</>
+            )}
+          </button>
         </div>
-        <div>
-          <label className="block text-sm text-gray-600 mb-1">To Date</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-        <button
-          onClick={fetchReport}
-          disabled={loading}
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Loading...' : 'Generate Report'}
-        </button>
       </div>
 
       {/* Report Content */}
       {searched && (
         <div id="report">
-
-          {/* Print Header - only shows when printing */}
-          <style>{`
-            @media print {
-              .no-print { display: none !important; }
-              #report { padding: 20px; }
-            }
-          `}</style>
-
+          {/* Print Header */}
           <div className="hidden print:block text-center mb-6">
-            {shop?.logo && (
-              <img src={shop.logo} alt="logo" className="w-16 h-16 object-contain mx-auto mb-2" />
-            )}
+            {shop?.logo && <img src={shop.logo} alt="logo" className="w-16 h-16 object-contain mx-auto mb-2" />}
             <h2 className="font-bold text-lg uppercase">{shop?.name}</h2>
             <p className="text-sm">{shop?.address} | Tel: {shop?.phone}</p>
             {shop?.tinNumber && <p className="text-sm">TIN: {shop?.tinNumber}</p>}
@@ -110,55 +116,68 @@ function SalesReport() {
 
           {/* Summary Cards */}
           <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-lg shadow p-4 text-center">
-              <p className="text-sm text-gray-500">Total Sales</p>
-              <p className="text-2xl font-bold text-blue-600">{sales.length}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 text-center">
-              <p className="text-sm text-gray-500">Total Items Sold</p>
-              <p className="text-2xl font-bold text-green-600">{totalItems}</p>
-            </div>
-            <div className="bg-white rounded-lg shadow p-4 text-center">
-              <p className="text-sm text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-bold text-purple-600">RWF {totalRevenue.toLocaleString()}</p>
-            </div>
+            {[
+              { label: 'Total Sales', value: sales.length, color: 'linear-gradient(135deg, #3b82f6, #06b6d4)' },
+              { label: 'Total Items Sold', value: totalItems, color: 'linear-gradient(135deg, #10b981, #34d399)' },
+              { label: 'Total Revenue', value: `RWF ${totalRevenue.toLocaleString()}`, color: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
+            ].map((card, i) => (
+              <div key={i} className="bg-white rounded-xl p-5"
+                style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <p className="text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>{card.label}</p>
+                <p className="text-2xl font-bold" style={{
+                  background: card.color, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                }}>{card.value}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Sales Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Table */}
+          <div className="bg-white rounded-xl overflow-hidden"
+            style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-left">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Items</th>
-                  <th className="px-4 py-3">Payment</th>
-                  <th className="px-4 py-3">Total</th>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                  {['#', 'Date & Time', 'Items', 'Payment', 'Total'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: '#94a3b8' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {sales.length === 0 ? (
-                  <tr><td colSpan="5" className="text-center py-6 text-gray-400">No sales found for this period</td></tr>
+                  <tr><td colSpan="5" className="text-center py-16">
+                    <MdAssessment size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
+                    <p style={{ color: '#94a3b8' }}>No sales found for this period</p>
+                  </td></tr>
                 ) : (
                   sales.map((sale, index) => (
-                    <tr key={sale.id} className="border-t hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-400">{index + 1}</td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {new Date(sale.date).toLocaleString()}
+                    <tr key={sale.id}
+                      style={{ borderBottom: index < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                      <td className="px-5 py-3.5 text-xs font-medium" style={{ color: '#94a3b8' }}>{index + 1}</td>
+                      <td className="px-5 py-3.5">
+                        <p className="font-medium text-sm" style={{ color: '#0f172a' }}>{new Date(sale.date).toLocaleDateString()}</p>
+                        <p className="text-xs" style={{ color: '#94a3b8' }}>{new Date(sale.date).toLocaleTimeString()}</p>
                       </td>
-                      <td className="px-4 py-3">
-                        {sale.items?.map(item => (
-                          <span key={item.id} className="block">
-                            {item.product?.name} x{item.quantity}
-                          </span>
-                        ))}
+                      <td className="px-5 py-3.5">
+                        <div className="flex flex-wrap gap-1">
+                          {sale.items?.map(item => (
+                            <span key={item.id} className="px-2 py-0.5 rounded-full text-xs"
+                              style={{ background: '#f1f5f9', color: '#64748b' }}>
+                              {item.product?.name} ×{item.quantity}
+                            </span>
+                          ))}
+                        </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-                          {sale.paymentMethod}
-                        </span>
+                      <td className="px-5 py-3.5">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                          style={{
+                            background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                            color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                          }}>{sale.paymentMethod}</span>
                       </td>
-                      <td className="px-4 py-3 font-bold text-blue-600">
+                      <td className="px-5 py-3.5 font-bold" style={{ color: '#0f172a' }}>
                         RWF {sale.totalAmount?.toLocaleString()}
                       </td>
                     </tr>
@@ -166,10 +185,14 @@ function SalesReport() {
                 )}
               </tbody>
               {sales.length > 0 && (
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan="4" className="px-4 py-3 font-bold text-right">TOTAL REVENUE</td>
-                    <td className="px-4 py-3 font-bold text-blue-600">RWF {totalRevenue.toLocaleString()}</td>
+                <tfoot>
+                  <tr style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
+                    <td colSpan="4" className="px-5 py-3 text-sm font-bold text-right" style={{ color: '#64748b' }}>
+                      TOTAL REVENUE
+                    </td>
+                    <td className="px-5 py-3 font-bold text-lg" style={{ color: '#3b82f6' }}>
+                      RWF {totalRevenue.toLocaleString()}
+                    </td>
                   </tr>
                 </tfoot>
               )}
