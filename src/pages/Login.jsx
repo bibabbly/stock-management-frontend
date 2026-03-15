@@ -20,6 +20,7 @@ function Login() {
     try {
       const response = await api.post('/auth/login', { email, password })
    const userData = {
+  name: response.data.name,
   email: response.data.email,
   role: response.data.role,
   shopName: response.data.shopName,
