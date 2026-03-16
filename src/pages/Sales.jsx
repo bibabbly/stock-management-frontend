@@ -9,6 +9,8 @@ function Sales() {
   const { shopId, userId } = useAuth()
   const [sales, setSales] = useState([])
   const [products, setProducts] = useState([])
+  const [supplierId, setSupplierId] = useState('')
+  const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('CASH')
@@ -26,6 +28,15 @@ function Sales() {
   useEffect(() => {
     fetchSales()
     api.get(`/products/shop/${shopId}`).then(res => setProducts(res.data))
+    api.get(`/suppliers/shop/${shopId}`).then(res => {
+      const list = res.data
+      const hasCashNorm = list.some(s => s.name === 'CashNorm')
+      if (!hasCashNorm) {
+        setSuppliers([{ id: 'cashnorm', name: '🚶 CashNorm (Walk-in)' }, ...list])
+      } else {
+        setSuppliers(list)
+      }
+    })
   }, [])
 
   const addItem = () => setItems([...items, { productId: '', quantity: 1 }])
@@ -36,7 +47,6 @@ function Sales() {
     setItems(updated)
   }
 
-  // Calculate total for current form
   const formTotal = items.reduce((sum, item) => {
     const product = products.find(p => p.id === parseInt(item.productId))
     return sum + (product ? product.sellingPrice * parseInt(item.quantity || 0) : 0)
@@ -46,7 +56,10 @@ function Sales() {
     setError('')
     try {
       await api.post('/sales', {
-        shopId, userId, paymentMethod,
+        shopId,
+        userId,
+        paymentMethod,
+        supplierId: supplierId && supplierId !== 'cashnorm' ? parseInt(supplierId) : null,
         items: items.map(i => ({
           productId: parseInt(i.productId),
           quantity: parseInt(i.quantity)
@@ -55,6 +68,7 @@ function Sales() {
       setShowModal(false)
       setItems([{ productId: '', quantity: 1 }])
       setPaymentMethod('CASH')
+      setSupplierId('')
       fetchSales()
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
@@ -90,7 +104,7 @@ function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Date & Time', 'Items', 'Payment', 'Total', 'Action'].map(h => (
+              {['Date & Time', 'Items', 'Supplier', 'Payment', 'Total', 'Action'].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: '#94a3b8' }}>{h}</th>
               ))}
@@ -98,12 +112,12 @@ function Sales() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="5" className="text-center py-16">
+              <tr><td colSpan="6" className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading sales...</p>
               </td></tr>
             ) : sales.length === 0 ? (
-              <tr><td colSpan="5" className="text-center py-16">
+              <tr><td colSpan="6" className="text-center py-16">
                 <MdPointOfSale size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No sales yet</p>
               </td></tr>
@@ -132,6 +146,13 @@ function Sales() {
                         </span>
                       ))}
                     </div>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="text-xs font-medium" style={{ color: '#64748b' }}>
+                      {sale.supplier?.name || (
+                        <span style={{ color: '#cbd5e1' }}>CashNorm</span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-5 py-3.5">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -183,7 +204,7 @@ function Sales() {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+            <div className="px-6 py-4 max-h-[32rem] overflow-y-auto">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
                   {error}
@@ -211,6 +232,23 @@ function Sales() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Supplier */}
+              <div className="mb-5">
+                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
+                  Supplier / Customer
+                </label>
+                <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                  onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
+                  <option value="">-- Select supplier --</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Items */}
