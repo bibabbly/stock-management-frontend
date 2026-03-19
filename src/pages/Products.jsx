@@ -37,7 +37,7 @@ function Products() {
 
   const openAdd = () => {
     setEditProduct(null)
-    setForm({ name: '', category: '', unit: '', buyingPrice: '', sellingPrice: '', quantity: '', minStock: '', barcode: '' })
+    setForm({ name: '', category: '', unit: '', buyingPrice: '', sellingPrice: '', quantity: 0, minStock: '', barcode: '' })
     setShowModal(true)
   }
 
@@ -74,16 +74,15 @@ function Products() {
     }
   }
 
-  const fields = [
-    { label: 'Product Name', key: 'name', col: 2 },
-    { label: 'Category', key: 'category' },
-    { label: 'Unit (e.g. kg, pcs)', key: 'unit' },
-    { label: 'Buying Price (RWF)', key: 'buyingPrice' },
-    { label: 'Selling Price (RWF)', key: 'sellingPrice' },
-    { label: 'Quantity', key: 'quantity' },
-    { label: 'Min Stock', key: 'minStock' },
-    { label: 'Barcode', key: 'barcode' },
-  ]
+const fields = [
+  { label: 'Product Name', key: 'name', col: 2 },
+  { label: 'Category', key: 'category' },
+  { label: 'Unit (e.g. kg, pcs)', key: 'unit' },
+  { label: 'Buying Price (RWF)', key: 'buyingPrice' },
+  { label: 'Selling Price (RWF)', key: 'sellingPrice' },
+  { label: 'Min Stock', key: 'minStock' },
+  { label: 'Barcode', key: 'barcode' },
+]
 
   return (
     <Layout>
