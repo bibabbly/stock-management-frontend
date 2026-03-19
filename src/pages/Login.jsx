@@ -187,14 +187,17 @@ function Login() {
                 {loading ? 'Signing in...' : 'Sign In →'}
               </button>
             </form>
-
-            <p className="text-center text-sm mt-6" style={{ color: '#94a3b8' }}>
+          {/** Registration disabled - contact INNOTEWO INC LTD
+           * 
+           *    <p className="text-center text-sm mt-6" style={{ color: '#94a3b8' }}>
               Don't have an account?{' '}
               <span onClick={() => navigate('/register-shop')}
                 className="font-semibold cursor-pointer" style={{ color: '#3b82f6' }}>
                 Register your shop
               </span>
             </p>
+           */}
+         
           </div>
         </div>
       </div>
