@@ -34,20 +34,14 @@ function Users() {
 
   const handleEdit = (user) => {
     setEditUser(user)
-    setForm({
-      name: user.name, email: user.email,
-      password: '', shopRoleId: user.shopRole?.id || ''
-    })
+    setForm({ name: user.name, email: user.email, password: '', shopRoleId: user.shopRole?.id || '' })
     setShowModal(true)
   }
 
   const handleSubmit = async () => {
     const payload = {
-      name: form.name,
-      email: form.email,
-      password: form.password,
-      shop: { id: shopId },
-      role: 'CASHIER',
+      name: form.name, email: form.email, password: form.password,
+      shop: { id: shopId }, role: 'CASHIER',
       shopRole: form.shopRoleId ? { id: parseInt(form.shopRoleId) } : null
     }
     try {
@@ -81,21 +75,22 @@ function Users() {
 
   return (
     <Layout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Users</h1>
-          <p className="text-sm" style={{ color: '#94a3b8' }}>{users.length} users in your shop</p>
+          <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Users</h1>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{users.length} users in your shop</p>
         </div>
         <button onClick={openAdd}
-          className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold"
+          className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
           style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
-          <MdAdd size={20} /> Add User
+          <MdAdd size={18} />
+          <span className="hidden sm:inline">Add User</span>
+          <span className="sm:hidden">Add</span>
         </button>
       </div>
 
-      {/* Users Table */}
-      <div className="bg-white rounded-xl overflow-hidden"
+      {/* ── DESKTOP TABLE ── */}
+      <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
           <thead>
@@ -142,23 +137,19 @@ function Users() {
                       {user.shopRole?.name || user.role}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs" style={{ color: '#94a3b8' }}>
-                      {user.shopRole?.permissions?.length
-                        ? `${user.shopRole.permissions.length} pages`
-                        : user.role === 'ADMIN' ? 'Full access' : '—'}
-                    </span>
+                  <td className="px-5 py-3.5 text-xs" style={{ color: '#94a3b8' }}>
+                    {user.shopRole?.permissions?.length
+                      ? `${user.shopRole.permissions.length} pages`
+                      : user.role === 'ADMIN' ? 'Full access' : '—'}
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleEdit(user)}
-                        className="p-1.5 rounded-lg"
-                        style={{ color: '#3b82f6', background: '#eff6ff' }}>
+                        className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
                         <MdEdit size={16} />
                       </button>
                       <button onClick={() => handleDelete(user.id)}
-                        className="p-1.5 rounded-lg"
-                        style={{ color: '#ef4444', background: '#fef2f2' }}>
+                        className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
                         <MdDelete size={16} />
                       </button>
                     </div>
@@ -170,16 +161,78 @@ function Users() {
         </table>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+      {/* ── MOBILE CARDS ── */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
+            <p style={{ color: '#94a3b8' }}>Loading users...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-16">
+            <MdGroup size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
+            <p style={{ color: '#94a3b8' }}>No users yet</p>
+          </div>
+        ) : (
+          users.map(user => (
+            <div key={user.id} className="bg-white rounded-xl p-4"
+              style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
+                    style={{ background: getColor(user.name) }}>
+                    {user.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{user.name}</p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>{user.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style={{
+                          background: user.role === 'ADMIN' ? '#fef3c7' : '#eff6ff',
+                          color: user.role === 'ADMIN' ? '#d97706' : '#3b82f6'
+                        }}>
+                        {user.shopRole?.name || user.role}
+                      </span>
+                      <span className="text-xs" style={{ color: '#94a3b8' }}>
+                        {user.shopRole?.permissions?.length
+                          ? `${user.shopRole.permissions.length} pages`
+                          : user.role === 'ADMIN' ? 'Full access' : ''}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => handleEdit(user)}
+                    className="p-2 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
+                    <MdEdit size={16} />
+                  </button>
+                  <button onClick={() => handleDelete(user.id)}
+                    className="p-2 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
+                    <MdDelete size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
-            <div className="flex items-center justify-between px-6 py-4"
+      {/* Modal — slides up from bottom */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
+            style={{ borderRadius: '20px 20px 0 0' }}>
+
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
-                <h2 className="text-lg font-bold" style={{ color: '#0f172a' }}>
+                <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>
                   {editUser ? 'Edit User' : 'Add New User'}
                 </h2>
                 <p className="text-xs" style={{ color: '#94a3b8' }}>
@@ -192,29 +245,27 @@ function Users() {
               </button>
             </div>
 
-            <div className="px-6 py-4 space-y-4">
+            <div className="px-5 py-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Full Name</label>
                 <input type="text" value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
                   placeholder="John Doe"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Email</label>
                 <input type="email" value={form.email}
                   onChange={e => setForm({ ...form, email: e.target.value })}
                   placeholder="john@shop.com"
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   {editUser ? 'New Password (leave blank to keep)' : 'Password'}
@@ -223,23 +274,21 @@ function Users() {
                   <input type={showPassword ? 'text' : 'password'} value={form.password}
                     onChange={e => setForm({ ...form, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full rounded-xl px-3 py-2.5 pr-10 text-sm focus:outline-none"
+                    className="w-full rounded-xl px-3 py-3 pr-10 text-sm focus:outline-none"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                     onFocus={e => e.target.style.borderColor = '#3b82f6'}
                     onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: '#94a3b8' }}>
+                    className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }}>
                     {showPassword ? <MdVisibilityOff size={18} /> : <MdVisibility size={18} />}
                   </button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Assign Role</label>
                 <select value={form.shopRoleId}
                   onChange={e => setForm({ ...form, shopRoleId: e.target.value })}
-                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
@@ -253,14 +302,14 @@ function Users() {
               </div>
             </div>
 
-            <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+            <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleSubmit}
-                className="flex-1 text-white py-2.5 rounded-xl font-semibold text-sm"
+                className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
                 style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
                 {editUser ? 'Update User' : 'Create User'}
               </button>
               <button onClick={() => setShowModal(false)}
-                className="px-6 py-2.5 rounded-xl font-semibold text-sm"
+                className="px-5 py-3 rounded-xl font-semibold text-sm"
                 style={{ background: '#f1f5f9', color: '#64748b' }}>
                 Cancel
               </button>

@@ -75,8 +75,8 @@ function Settings() {
   return (
     <Layout>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Shop Settings</h1>
+      <div className="mb-5">
+        <h1 className="text-xl font-bold mb-1" style={{ color: '#0f172a' }}>Shop Settings</h1>
         <p className="text-sm" style={{ color: '#94a3b8' }}>Manage your shop profile and receipt information</p>
       </div>
 
@@ -92,12 +92,14 @@ function Settings() {
         )}
 
         {/* Logo Card */}
-        <div className="bg-white rounded-xl p-6"
+        <div className="bg-white rounded-xl p-5"
           style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <h2 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#94a3b8' }}>
             Shop Logo
           </h2>
-          <div className="flex items-center gap-6">
+          {/* Stack vertically on very small, row on sm+ */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+
             {/* Logo Preview */}
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0"
               style={{ border: '2px dashed #e2e8f0', background: '#f8fafc' }}>
@@ -110,38 +112,34 @@ function Settings() {
               )}
             </div>
 
-            {/* Upload Button */}
-            <div>
-              <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                style={{ background: '#f1f5f9', color: '#64748b', border: '2px solid #e2e8f0' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
-                onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}>
+            {/* Upload + Remove */}
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{ background: '#f1f5f9', color: '#64748b', border: '2px solid #e2e8f0' }}>
                 <MdPhotoCamera size={18} />
                 {form.logo ? 'Change Logo' : 'Upload Logo'}
                 <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
               </label>
-              <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>PNG, JPG up to 2MB</p>
+              <p className="text-xs" style={{ color: '#94a3b8' }}>PNG, JPG up to 2MB</p>
+              {form.logo && (
+                <button
+                  onClick={() => setForm({ ...form, logo: '' })}
+                  className="text-xs font-semibold text-left"
+                  style={{ color: '#ef4444' }}>
+                  Remove logo
+                </button>
+              )}
             </div>
-
-            {/* Remove logo */}
-            {form.logo && (
-              <button
-                onClick={() => setForm({ ...form, logo: '' })}
-                className="text-xs font-semibold"
-                style={{ color: '#ef4444' }}>
-                Remove
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Shop Info Card */}
-        <div className="bg-white rounded-xl p-6"
+        {/* Shop Info Card — 1 col mobile, 2 col desktop */}
+        <div className="bg-white rounded-xl p-5"
           style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <h2 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: '#94a3b8' }}>
             Shop Information
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {fields.map(({ label, key, icon, placeholder }) => (
               <div key={key}>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
@@ -156,7 +154,7 @@ function Settings() {
                     value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     placeholder={placeholder}
-                    className="w-full rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none"
+                    className="w-full rounded-xl pl-9 pr-3 py-3 text-sm focus:outline-none"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                     onFocus={e => e.target.style.borderColor = '#3b82f6'}
                     onBlur={e => e.target.style.borderColor = '#f1f5f9'}
@@ -168,7 +166,7 @@ function Settings() {
         </div>
 
         {/* Receipt Footer Card */}
-        <div className="bg-white rounded-xl p-6"
+        <div className="bg-white rounded-xl p-5"
           style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <h2 className="text-sm font-bold uppercase tracking-wider mb-1" style={{ color: '#94a3b8' }}>
             Receipt Footer
@@ -191,11 +189,11 @@ function Settings() {
           </div>
         </div>
 
-        {/* Save Button */}
+        {/* Save Button — full width on mobile */}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 text-white px-8 py-3 rounded-xl font-semibold text-sm disabled:opacity-60"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 text-white px-8 py-3 rounded-xl font-semibold text-sm disabled:opacity-60"
           style={{
             background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
             boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
