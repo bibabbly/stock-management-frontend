@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
@@ -11,12 +11,26 @@ import {
 function Layout({ children }) {
   const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [pwError, setPwError] = useState('')
   const [pwSuccess, setPwSuccess] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()
@@ -62,105 +76,196 @@ function Layout({ children }) {
 
   const navItems = allNavItems.filter(item => hasPermission(item.page))
 
+  // Bottom nav shows top 4 most used pages for cashier
+  const bottomNavItems = navItems.slice(0, 4)
+
+  const SidebarContent = () => (
+    <>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 py-5 border-b" style={{ borderColor: '#1e293b' }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+          <span className="text-white text-sm font-bold">B</span>
+        </div>
+        <div>
+          <h1 className="font-bold text-white text-base leading-tight">BizTrack</h1>
+          <p className="text-xs" style={{ color: '#64748b' }}>by INNOTEWO</p>
+        </div>
+        {/* Close button on mobile */}
+        {isMobile && (
+          <button onClick={() => setMobileSidebarOpen(false)}
+            className="ml-auto p-1 rounded-lg" style={{ color: '#64748b' }}>
+            <MdClose size={20} />
+          </button>
+        )}
+      </div>
+
+      {/* Nav Links */}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {navItems.map((item) => (
+          <NavLink key={item.path} to={item.path} end={item.path === '/'}
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm ${isActive ? 'text-white font-medium' : 'hover:text-white'}`
+            }
+            style={({ isActive }) => ({
+              background: isActive ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'transparent',
+              color: isActive ? 'white' : '#94a3b8',
+            })}>
+            <span className="flex-shrink-0">{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User info at bottom */}
+      <div className="p-3 border-t" style={{ borderColor: '#1e293b' }}>
+        <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg" style={{ background: '#1e293b' }}>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+            {(user?.name || 'A').charAt(0).toUpperCase()}
+          </div>
+          <div className="overflow-hidden">
+            <p className="text-white text-xs font-semibold truncate">{user?.name || 'User'}</p>
+            <p className="text-xs truncate" style={{ color: '#64748b' }}>{user?.email || ''}</p>
+          </div>
+        </div>
+        <button onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm transition-all"
+          style={{ color: '#94a3b8' }}
+          onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+          onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+          <MdLogout size={20} className="flex-shrink-0" />
+          <span>Logout</span>
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <div className="flex h-screen" style={{ background: '#f1f5f9' }}>
 
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'w-60' : 'w-16'} flex flex-col transition-all duration-300 flex-shrink-0`}
-        style={{ background: '#0f172a' }}>
+      {/* ── DESKTOP SIDEBAR ── */}
+      {!isMobile && (
+        <div className={`${sidebarOpen ? 'w-60' : 'w-16'} flex flex-col transition-all duration-300 flex-shrink-0`}
+          style={{ background: '#0f172a' }}>
 
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b" style={{ borderColor: '#1e293b' }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-            <span className="text-white text-sm font-bold">B</span>
+          {/* Logo */}
+          <div className="flex items-center gap-3 px-4 py-5 border-b" style={{ borderColor: '#1e293b' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+              <span className="text-white text-sm font-bold">B</span>
+            </div>
+            {sidebarOpen && (
+              <div>
+                <h1 className="font-bold text-white text-base leading-tight">BizTrack</h1>
+                <p className="text-xs" style={{ color: '#64748b' }}>by INNOTEWO</p>
+              </div>
+            )}
           </div>
-          {sidebarOpen && (
-            <div>
-              <h1 className="font-bold text-white text-base leading-tight">BizTrack</h1>
-              <p className="text-xs" style={{ color: '#64748b' }}>by INNOTEWO</p>
-            </div>
-          )}
-        </div>
 
-        {/* Nav Links */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink key={item.path} to={item.path} end={item.path === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm ${isActive ? 'text-white font-medium' : 'hover:text-white'}`
-              }
-              style={({ isActive }) => ({
-                background: isActive ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'transparent',
-                color: isActive ? 'white' : '#94a3b8',
-              })}>
-              <span className="flex-shrink-0">{item.icon}</span>
-              {sidebarOpen && <span>{item.label}</span>}
-            </NavLink>
-          ))}
-        </nav>
+          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+            {navItems.map((item) => (
+              <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm ${isActive ? 'text-white font-medium' : 'hover:text-white'}`
+                }
+                style={({ isActive }) => ({
+                  background: isActive ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'transparent',
+                  color: isActive ? 'white' : '#94a3b8',
+                })}>
+                <span className="flex-shrink-0">{item.icon}</span>
+                {sidebarOpen && <span>{item.label}</span>}
+              </NavLink>
+            ))}
+          </nav>
 
-        {/* User info at bottom */}
-        <div className="p-3 border-t" style={{ borderColor: '#1e293b' }}>
-          {sidebarOpen && (
-            <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg" style={{ background: '#1e293b' }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                {(user?.name || 'A').charAt(0).toUpperCase()}
+          <div className="p-3 border-t" style={{ borderColor: '#1e293b' }}>
+            {sidebarOpen && (
+              <div className="flex items-center gap-3 px-3 py-2 mb-2 rounded-lg" style={{ background: '#1e293b' }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                  {(user?.name || 'A').charAt(0).toUpperCase()}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-white text-xs font-semibold truncate">{user?.name || 'User'}</p>
+                  <p className="text-xs truncate" style={{ color: '#64748b' }}>{user?.email || ''}</p>
+                </div>
               </div>
-              <div className="overflow-hidden">
-                <p className="text-white text-xs font-semibold truncate">{user?.name || 'User'}</p>
-                <p className="text-xs truncate" style={{ color: '#64748b' }}>{user?.email || ''}</p>
-              </div>
-            </div>
-          )}
-          <button onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm transition-all"
-            style={{ color: '#94a3b8' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
-            onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
-            <MdLogout size={20} className="flex-shrink-0" />
-            {sidebarOpen && <span>Logout</span>}
-          </button>
+            )}
+            <button onClick={handleLogout}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg w-full text-sm transition-all"
+              style={{ color: '#94a3b8' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#f87171'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}>
+              <MdLogout size={20} className="flex-shrink-0" />
+              {sidebarOpen && <span>Logout</span>}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Content */}
+      {/* ── MOBILE SIDEBAR OVERLAY ── */}
+      {isMobile && mobileSidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+            onClick={() => setMobileSidebarOpen(false)} />
+          {/* Drawer */}
+          <div className="fixed top-0 left-0 h-full w-72 z-50 flex flex-col"
+            style={{ background: '#0f172a' }}>
+            <SidebarContent />
+          </div>
+        </>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top Bar */}
-        <div className="bg-white px-6 py-4 flex items-center justify-between flex-shrink-0"
+        <div className="bg-white px-4 py-3 flex items-center justify-between flex-shrink-0"
           style={{ borderBottom: '1px solid #e2e8f0' }}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-            <MdMenu size={22} />
-          </button>
 
-          {/* Top right - Avatar with dropdown */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => isMobile ? setMobileSidebarOpen(true) : setSidebarOpen(!sidebarOpen)}
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: '#64748b' }}>
+              <MdMenu size={22} />
+            </button>
+            {/* Show BizTrack brand in topbar on mobile */}
+            {isMobile && (
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                  <span className="text-white text-xs font-bold">B</span>
+                </div>
+                <span className="font-bold text-sm" style={{ color: '#0f172a' }}>BizTrack</span>
+              </div>
+            )}
+          </div>
+
+          {/* Top right avatar + dropdown */}
           <div className="relative">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-3 p-1.5 rounded-xl transition-all"
+              className="flex items-center gap-2 p-1.5 rounded-xl transition-all"
               style={{ background: dropdownOpen ? '#f1f5f9' : 'transparent' }}>
-              <div className="text-right">
-                <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>{user?.name || 'User'}</p>
-                <p className="text-xs" style={{ color: '#94a3b8' }}>{user?.shopName || 'BizTrack'}</p>
-              </div>
+              {!isMobile && (
+                <div className="text-right">
+                  <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>{user?.name || 'User'}</p>
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>{user?.shopName || 'BizTrack'}</p>
+                </div>
+              )}
               <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
                 style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
                 {(user?.name || 'A').charAt(0).toUpperCase()}
               </div>
             </button>
 
-            {/* Dropdown */}
             {dropdownOpen && (
               <div className="absolute right-0 top-14 w-56 rounded-2xl shadow-xl z-50 overflow-hidden"
                 style={{ background: 'white', border: '1px solid #f1f5f9' }}>
-
-                {/* User info */}
                 <div className="px-4 py-3" style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
                   <p className="text-sm font-bold" style={{ color: '#0f172a' }}>{user?.name}</p>
                   <p className="text-xs" style={{ color: '#94a3b8' }}>{user?.email}</p>
@@ -169,8 +274,6 @@ function Layout({ children }) {
                     {user?.role}
                   </span>
                 </div>
-
-                {/* Change Password */}
                 <button
                   onClick={() => { setDropdownOpen(false); setShowChangePassword(true) }}
                   className="flex items-center gap-3 w-full px-4 py-3 text-sm transition-all"
@@ -180,8 +283,6 @@ function Layout({ children }) {
                   <MdLock size={18} style={{ color: '#3b82f6' }} />
                   Change Password
                 </button>
-
-                {/* Logout */}
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-3 w-full px-4 py-3 text-sm transition-all"
@@ -196,18 +297,47 @@ function Layout({ children }) {
           </div>
         </div>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-auto p-6" onClick={() => setDropdownOpen(false)}>
+        {/* Page Content — add bottom padding on mobile for bottom nav */}
+        <div
+          className="flex-1 overflow-auto p-4 md:p-6"
+          style={{ paddingBottom: isMobile ? '80px' : undefined }}
+          onClick={() => setDropdownOpen(false)}>
           {children}
         </div>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 flex bg-white"
+          style={{ borderTop: '1px solid #e2e8f0', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {bottomNavItems.map((item) => {
+            const isActive = location.pathname === item.path ||
+              (item.path === '/' && location.pathname === '/')
+            return (
+              <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5"
+                style={{ color: isActive ? '#3b82f6' : '#94a3b8' }}>
+                <span>{item.icon}</span>
+                <span className="text-xs font-medium">{item.label}</span>
+              </NavLink>
+            )
+          })}
+          {/* More button to open full sidebar */}
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5"
+            style={{ color: '#94a3b8' }}>
+            <MdMenu size={20} />
+            <span className="text-xs font-medium">More</span>
+          </button>
+        </div>
+      )}
 
       {/* Change Password Modal */}
       {showChangePassword && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
-
             <div className="flex items-center justify-between px-6 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -219,7 +349,6 @@ function Layout({ children }) {
                 <MdClose size={20} />
               </button>
             </div>
-
             <div className="px-6 py-4 space-y-4">
               {pwSuccess && (
                 <div className="p-3 rounded-xl text-sm"
@@ -250,7 +379,6 @@ function Layout({ children }) {
                 </div>
               ))}
             </div>
-
             <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleChangePassword}
                 className="flex-1 text-white py-2.5 rounded-xl font-semibold text-sm"
