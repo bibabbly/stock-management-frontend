@@ -125,7 +125,7 @@ function Login() {
             style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Welcome back 👋</h2>
+              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Welcome back </h2>
               <p className="text-sm" style={{ color: '#94a3b8' }}>Sign in to your BizTrack account</p>
             </div>
 
