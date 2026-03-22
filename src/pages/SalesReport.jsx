@@ -49,53 +49,55 @@ function SalesReport() {
       <style>{`@media print { .no-print { display: none !important; } #report { padding: 20px; } }`}</style>
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 no-print">
+      <div className="flex items-center justify-between mb-5 no-print">
         <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Sales Report</h1>
-          <p className="text-sm" style={{ color: '#94a3b8' }}>Generate and print sales reports by date range</p>
+          <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Sales Report</h1>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>Generate and print sales reports by date range</p>
         </div>
         {searched && sales.length > 0 && (
           <button onClick={() => window.print()}
-            className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold no-print"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
-            <MdPrint size={18} /> Print Report
+            className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold no-print"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+            <MdPrint size={16} />
+            <span className="hidden sm:inline">Print Report</span>
+            <span className="sm:hidden">Print</span>
           </button>
         )}
       </div>
 
-      {/* Date Filter */}
-      <div className="bg-white rounded-xl p-5 mb-6 no-print"
+      {/* Date Filter — stacks on mobile */}
+      <div className="bg-white rounded-xl p-4 mb-5 no-print"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div className="flex gap-4 items-end flex-wrap">
-          <div>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
             <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>From Date</label>
             <div className="relative">
               <MdCalendarToday size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                className="pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm focus:outline-none"
                 style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                 onFocus={e => e.target.style.borderColor = '#3b82f6'}
                 onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
             </div>
           </div>
-          <div>
+          <div className="flex-1">
             <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>To Date</label>
             <div className="relative">
               <MdCalendarToday size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94a3b8' }} />
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                className="pl-9 pr-3 py-2.5 rounded-xl text-sm focus:outline-none"
+                className="w-full pl-9 pr-3 py-3 rounded-xl text-sm focus:outline-none"
                 style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                 onFocus={e => e.target.style.borderColor = '#3b82f6'}
                 onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
             </div>
           </div>
           <button onClick={fetchReport} disabled={loading || !startDate || !endDate}
-            className="flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+            className="flex items-center justify-center gap-2 text-white px-6 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
             {loading ? (
               <><div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" /> Generating...</>
             ) : (
-              <><MdAssessment size={18} /> Generate Report</>
+              <><MdAssessment size={18} /> Generate</>
             )}
           </button>
         </div>
@@ -114,25 +116,25 @@ function SalesReport() {
             <p className="text-sm">From: {startDate} To: {endDate}</p>
           </div>
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          {/* Summary Cards — 1 col mobile, 3 col desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Total Sales', value: sales.length, color: 'linear-gradient(135deg, #3b82f6, #06b6d4)' },
               { label: 'Total Items Sold', value: totalItems, color: 'linear-gradient(135deg, #10b981, #34d399)' },
               { label: 'Total Revenue', value: `RWF ${totalRevenue.toLocaleString()}`, color: 'linear-gradient(135deg, #8b5cf6, #a78bfa)' },
             ].map((card, i) => (
-              <div key={i} className="bg-white rounded-xl p-5"
+              <div key={i} className="bg-white rounded-xl p-4 flex sm:block items-center gap-4"
                 style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <p className="text-xs font-medium mb-2" style={{ color: '#94a3b8' }}>{card.label}</p>
-                <p className="text-2xl font-bold" style={{
+                <p className="text-xs font-medium sm:mb-2" style={{ color: '#94a3b8', minWidth: 'fit-content' }}>{card.label}</p>
+                <p className="text-xl font-bold" style={{
                   background: card.color, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
                 }}>{card.value}</p>
               </div>
             ))}
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-xl overflow-hidden"
+          {/* ── DESKTOP TABLE ── */}
+          <div className="hidden md:block bg-white rounded-xl overflow-hidden"
             style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <table className="w-full text-sm">
               <thead>
@@ -197,6 +199,58 @@ function SalesReport() {
                 </tfoot>
               )}
             </table>
+          </div>
+
+          {/* ── MOBILE CARDS ── */}
+          <div className="md:hidden space-y-3">
+            {sales.length === 0 ? (
+              <div className="text-center py-16">
+                <MdAssessment size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
+                <p style={{ color: '#94a3b8' }}>No sales found for this period</p>
+              </div>
+            ) : (
+              <>
+                {sales.map((sale, index) => (
+                  <div key={sale.id} className="bg-white rounded-xl p-4"
+                    style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
+                          RWF {sale.totalAmount?.toLocaleString()}
+                        </p>
+                        <p className="text-xs" style={{ color: '#94a3b8' }}>
+                          {new Date(sale.date).toLocaleDateString()} · {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium" style={{ color: '#94a3b8' }}>#{index + 1}</span>
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                          style={{
+                            background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                            color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                          }}>{sale.paymentMethod}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {sale.items?.map(item => (
+                        <span key={item.id} className="px-2 py-0.5 rounded-full text-xs"
+                          style={{ background: '#f1f5f9', color: '#64748b' }}>
+                          {item.product?.name} ×{item.quantity}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* Total footer */}
+                <div className="rounded-xl p-4 flex items-center justify-between"
+                  style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
+                  <span className="text-sm font-bold" style={{ color: '#64748b' }}>TOTAL REVENUE</span>
+                  <span className="text-lg font-bold" style={{ color: '#3b82f6' }}>
+                    RWF {totalRevenue.toLocaleString()}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
