@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdEdit, MdDelete, MdClose, MdPeople, MdPhone, MdEmail, MdLocationOn } from 'react-icons/md'
+import { MdAdd, MdEdit, MdDelete, MdClose, MdPeople, MdPhone, MdEmail, MdLocationOn, MdSearch } from 'react-icons/md'
+import Pagination from '../components/Pagination'
 
 function Suppliers() {
   const { shopId } = useAuth()
@@ -11,15 +12,33 @@ function Suppliers() {
   const [showModal, setShowModal] = useState(false)
   const [editSupplier, setEditSupplier] = useState(null)
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
-  const fetchSuppliers = () => {
-    api.get(`/suppliers/shop/${shopId}`)
-      .then(res => setSuppliers(res.data))
+  const fetchSuppliers = (pageNum = 0, searchVal = '', size = pageSize) => {
+    setLoading(true)
+    api.get(`/suppliers/shop/${shopId}?page=${pageNum}&size=${size}&search=${searchVal}`)
+      .then(res => {
+        setSuppliers(res.data.content || [])
+        setTotalPages(res.data.totalPages || 0)
+        setTotalElements(res.data.totalElements || 0)
+        setPage(pageNum)
+        setPageSize(size)
+      })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => { fetchSuppliers() }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchSuppliers(0, search, pageSize), 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const openAdd = () => {
     setEditSupplier(null)
@@ -28,6 +47,8 @@ function Suppliers() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     const payload = { ...form, shop: { id: shopId } }
     try {
       if (editSupplier) {
@@ -37,9 +58,11 @@ function Suppliers() {
       }
       setShowModal(false)
       setEditSupplier(null)
-      fetchSuppliers()
+      fetchSuppliers(page, search, pageSize)
     } catch (err) {
       console.error(err)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -52,7 +75,7 @@ function Suppliers() {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this supplier?')) {
       await api.delete(`/suppliers/${id}`)
-      fetchSuppliers()
+      fetchSuppliers(page, search, pageSize)
     }
   }
 
@@ -78,7 +101,7 @@ function Suppliers() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Suppliers</h1>
-          <p className="text-xs" style={{ color: '#94a3b8' }}>{suppliers.length} suppliers registered</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} suppliers registered</p>
         </div>
         <button
           onClick={openAdd}
@@ -91,7 +114,26 @@ function Suppliers() {
         </button>
       </div>
 
-      {/* ── DESKTOP TABLE ── */}
+      {/* Search */}
+      <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
+        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <MdSearch size={20} style={{ color: '#94a3b8' }} />
+        <input
+          type="text"
+          placeholder="Search by name..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 text-sm focus:outline-none"
+          style={{ color: '#0f172a' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
+            <MdClose size={18} />
+          </button>
+        )}
+      </div>
+
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
@@ -112,7 +154,7 @@ function Suppliers() {
             ) : suppliers.length === 0 ? (
               <tr><td colSpan="5" className="text-center py-16">
                 <MdPeople size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-                <p style={{ color: '#94a3b8' }}>No suppliers yet</p>
+                <p style={{ color: '#94a3b8' }}>No suppliers found</p>
               </td></tr>
             ) : (
               suppliers.map((supplier, i) => (
@@ -166,7 +208,7 @@ function Suppliers() {
         </table>
       </div>
 
-      {/* ── MOBILE CARDS ── */}
+      {/* MOBILE CARDS */}
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="text-center py-16">
@@ -176,14 +218,12 @@ function Suppliers() {
         ) : suppliers.length === 0 ? (
           <div className="text-center py-16">
             <MdPeople size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-            <p style={{ color: '#94a3b8' }}>No suppliers yet</p>
+            <p style={{ color: '#94a3b8' }}>No suppliers found</p>
           </div>
         ) : (
           suppliers.map(supplier => (
             <div key={supplier.id} className="bg-white rounded-xl p-4"
               style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
-              {/* Top: avatar + name + actions */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
@@ -203,8 +243,6 @@ function Suppliers() {
                   </button>
                 </div>
               </div>
-
-              {/* Contact details */}
               <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
                 {supplier.phone && (
                   <div className="flex items-center gap-2 text-xs" style={{ color: '#64748b' }}>
@@ -230,14 +268,23 @@ function Suppliers() {
         )}
       </div>
 
-      {/* Modal — slides up from bottom on mobile */}
+      {/* Pagination */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        pageSize={pageSize}
+        onPageChange={(p) => fetchSuppliers(p, search, pageSize)}
+        onPageSizeChange={(s) => fetchSuppliers(0, search, s)}
+      />
+
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
 
-            {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
@@ -258,7 +305,6 @@ function Suppliers() {
               </button>
             </div>
 
-            {/* 1 col on mobile, 2 col on desktop */}
             <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {fields.map(({ label, key, col }) => (
                 <div key={key} className={col === 2 ? 'sm:col-span-2' : ''}>
@@ -279,10 +325,17 @@ function Suppliers() {
             </div>
 
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button onClick={handleSubmit}
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                {editSupplier ? 'Update Supplier' : 'Save Supplier'}
+                style={{
+                  background: submitting
+                    ? '#94a3b8'
+                    : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : editSupplier ? 'Update Supplier' : 'Save Supplier'}
               </button>
               <button onClick={() => setShowModal(false)}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"
