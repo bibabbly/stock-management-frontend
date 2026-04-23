@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
 import { MdAdd, MdClose, MdPointOfSale, MdPrint } from 'react-icons/md'
 import Receipt from '../components/Receipt'
+import Pagination from '../components/Pagination'
 
 function Sales() {
   const { shopId, userId } = useAuth()
@@ -20,16 +21,17 @@ function Sales() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-  const PAGE_SIZE = 20
+  const [pageSize, setPageSize] = useState(20)
 
-  const fetchSales = (pageNum = 0) => {
+  const fetchSales = (pageNum = 0, size = pageSize) => {
     setLoading(true)
-    api.get(`/sales/shop/${shopId}?page=${pageNum}&size=${PAGE_SIZE}`)
+    api.get(`/sales/shop/${shopId}?page=${pageNum}&size=${size}`)
       .then(res => {
         setSales(res.data.content || [])
         setTotalPages(res.data.totalPages || 0)
         setTotalElements(res.data.totalElements || 0)
         setPage(pageNum)
+        setPageSize(size)
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
@@ -77,7 +79,7 @@ function Sales() {
       setItems([{ productId: '', quantity: 1 }])
       setPaymentMethod('CASH')
       setSupplierId('')
-      fetchSales(0)
+      fetchSales(0, pageSize)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
     }
@@ -243,29 +245,14 @@ function Sales() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 px-2">
-          <p className="text-xs" style={{ color: '#94a3b8' }}>
-            Page {page + 1} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchSales(page - 1)}
-              disabled={page === 0}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ background: '#f1f5f9', color: page === 0 ? '#cbd5e1' : '#0f172a' }}>
-              Previous
-            </button>
-            <button
-              onClick={() => fetchSales(page + 1)}
-              disabled={page >= totalPages - 1}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ background: '#f1f5f9', color: page >= totalPages - 1 ? '#cbd5e1' : '#0f172a' }}>
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        pageSize={pageSize}
+        onPageChange={(p) => fetchSales(p, pageSize)}
+        onPageSizeChange={(s) => fetchSales(0, s)}
+      />
 
       {/* NEW SALE MODAL */}
       {showModal && (
@@ -297,7 +284,6 @@ function Sales() {
                 </div>
               )}
 
-              {/* Payment Method */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
                   Payment Method
@@ -320,7 +306,6 @@ function Sales() {
                 </div>
               </div>
 
-              {/* Supplier */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
                   Supplier / Customer
@@ -337,7 +322,6 @@ function Sales() {
                 </select>
               </div>
 
-              {/* Items */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
                   Products

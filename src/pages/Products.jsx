@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
 import { MdAdd, MdEdit, MdDelete, MdClose, MdSearch, MdInventory } from 'react-icons/md'
+import Pagination from '../components/Pagination'
 
 function Products() {
   const [products, setProducts] = useState([])
@@ -12,7 +13,7 @@ function Products() {
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-  const PAGE_SIZE = 20
+  const [pageSize, setPageSize] = useState(20)
   const { shopId } = useAuth()
   const [editProduct, setEditProduct] = useState(null)
   const [form, setForm] = useState({
@@ -21,14 +22,15 @@ function Products() {
     quantity: '', minStock: '', barcode: ''
   })
 
-  const fetchProducts = (pageNum = 0, searchVal = '') => {
+  const fetchProducts = (pageNum = 0, searchVal = '', size = pageSize) => {
     setLoading(true)
-    api.get(`/products/shop/${shopId}?page=${pageNum}&size=${PAGE_SIZE}&search=${searchVal}`)
+    api.get(`/products/shop/${shopId}?page=${pageNum}&size=${size}&search=${searchVal}`)
       .then(res => {
         setProducts(res.data.content)
         setTotalPages(res.data.totalPages)
         setTotalElements(res.data.totalElements)
         setPage(pageNum)
+        setPageSize(size)
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
@@ -37,7 +39,7 @@ function Products() {
   useEffect(() => { fetchProducts() }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchProducts(0, search), 400)
+    const timer = setTimeout(() => fetchProducts(0, search, pageSize), 400)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -57,7 +59,7 @@ function Products() {
       }
       setShowModal(false)
       setEditProduct(null)
-      fetchProducts(page, search)
+      fetchProducts(page, search, pageSize)
     } catch (err) {
       console.error(err)
     }
@@ -76,7 +78,7 @@ function Products() {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this product?')) {
       await api.delete(`/products/${id}`)
-      fetchProducts(page, search)
+      fetchProducts(page, search, pageSize)
     }
   }
 
@@ -279,29 +281,14 @@ function Products() {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 px-2">
-          <p className="text-xs" style={{ color: '#94a3b8' }}>
-            Page {page + 1} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchProducts(page - 1, search)}
-              disabled={page === 0}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ background: '#f1f5f9', color: page === 0 ? '#cbd5e1' : '#0f172a' }}>
-              Previous
-            </button>
-            <button
-              onClick={() => fetchProducts(page + 1, search)}
-              disabled={page >= totalPages - 1}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium"
-              style={{ background: '#f1f5f9', color: page >= totalPages - 1 ? '#cbd5e1' : '#0f172a' }}>
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        pageSize={pageSize}
+        onPageChange={(p) => fetchProducts(p, search, pageSize)}
+        onPageSizeChange={(s) => fetchProducts(0, search, s)}
+      />
 
       {/* Modal */}
       {showModal && (
