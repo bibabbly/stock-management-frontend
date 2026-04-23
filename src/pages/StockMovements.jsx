@@ -55,8 +55,9 @@ function StockMovements() {
   }, [])
 
   useEffect(() => {
-    if (search === '' && page === 0) return
-    const timer = setTimeout(() => fetchMovements(0, filter, search, pageSize), 400)
+    const timer = setTimeout(() => {
+      fetchMovements(0, filter, search, pageSize)
+    }, 400)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -71,8 +72,7 @@ function StockMovements() {
     setSubmitting(true)
     try {
       await api.post('/stock-movements/restock', {
-        shopId,
-        userId,
+        shopId, userId,
         productId: parseInt(form.productId),
         supplierId: parseInt(form.supplierId),
         quantity: parseInt(form.quantity),
@@ -145,10 +145,7 @@ function StockMovements() {
           style={{ color: '#0f172a' }}
         />
         {search && (
-          <button onClick={() => {
-            setSearch('')
-            fetchMovements(0, filter, '', pageSize)
-          }} style={{ color: '#94a3b8' }}>
+          <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
             <MdClose size={18} />
           </button>
         )}
@@ -339,7 +336,6 @@ function StockMovements() {
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
               )}
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <select value={form.productId}
@@ -354,7 +350,6 @@ function StockMovements() {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier</label>
                 <select value={form.supplierId}
@@ -369,16 +364,13 @@ function StockMovements() {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setForm({ ...form, quantity: Math.max(1, parseInt(form.quantity || 1) - 1) })}
                     className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
-                    style={{ background: '#f1f5f9', color: '#64748b' }}>
-                    −
-                  </button>
+                    style={{ background: '#f1f5f9', color: '#64748b' }}>−</button>
                   <input type="number" min="1" value={form.quantity}
                     onChange={e => setForm({ ...form, quantity: e.target.value })}
                     className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none text-center font-bold"
@@ -388,12 +380,9 @@ function StockMovements() {
                   <button
                     onClick={() => setForm({ ...form, quantity: parseInt(form.quantity || 1) + 1 })}
                     className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
-                    style={{ background: '#3b82f6', color: 'white' }}>
-                    +
-                  </button>
+                    style={{ background: '#3b82f6', color: 'white' }}>+</button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
                 <input type="text" value={form.note}
@@ -407,9 +396,7 @@ function StockMovements() {
             </div>
 
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button
-                onClick={handleRestock}
-                disabled={submitting}
+              <button onClick={handleRestock} disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
                 style={{
                   background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
