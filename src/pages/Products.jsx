@@ -6,10 +6,13 @@ import { MdAdd, MdEdit, MdDelete, MdClose, MdSearch, MdInventory } from 'react-i
 
 function Products() {
   const [products, setProducts] = useState([])
-  const [filtered, setFiltered] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 20
   const { shopId } = useAuth()
   const [editProduct, setEditProduct] = useState(null)
   const [form, setForm] = useState({
@@ -18,9 +21,15 @@ function Products() {
     quantity: '', minStock: '', barcode: ''
   })
 
-  const fetchProducts = () => {
-    api.get(`/products/shop/${shopId}`)
-      .then(res => { setProducts(res.data); setFiltered(res.data) })
+  const fetchProducts = (pageNum = 0, searchVal = '') => {
+    setLoading(true)
+    api.get(`/products/shop/${shopId}?page=${pageNum}&size=${PAGE_SIZE}&search=${searchVal}`)
+      .then(res => {
+        setProducts(res.data.content)
+        setTotalPages(res.data.totalPages)
+        setTotalElements(res.data.totalElements)
+        setPage(pageNum)
+      })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
   }
@@ -28,12 +37,9 @@ function Products() {
   useEffect(() => { fetchProducts() }, [])
 
   useEffect(() => {
-    const q = search.toLowerCase()
-    setFiltered(products.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.category?.toLowerCase().includes(q)
-    ))
-  }, [search, products])
+    const timer = setTimeout(() => fetchProducts(0, search), 400)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const openAdd = () => {
     setEditProduct(null)
@@ -51,7 +57,7 @@ function Products() {
       }
       setShowModal(false)
       setEditProduct(null)
-      fetchProducts()
+      fetchProducts(page, search)
     } catch (err) {
       console.error(err)
     }
@@ -70,7 +76,7 @@ function Products() {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this product?')) {
       await api.delete(`/products/${id}`)
-      fetchProducts()
+      fetchProducts(page, search)
     }
   }
 
@@ -90,7 +96,7 @@ function Products() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Products</h1>
-          <p className="text-xs" style={{ color: '#94a3b8' }}>{products.length} products in inventory</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} products in inventory</p>
         </div>
         <button
           onClick={openAdd}
@@ -122,7 +128,7 @@ function Products() {
         )}
       </div>
 
-      {/* ── DESKTOP TABLE ── */}
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
@@ -140,15 +146,15 @@ function Products() {
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading products...</p>
               </td></tr>
-            ) : filtered.length === 0 ? (
+            ) : products.length === 0 ? (
               <tr><td colSpan="7" className="text-center py-16">
                 <MdInventory size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No products found</p>
               </td></tr>
             ) : (
-              filtered.map((product, i) => (
+              products.map((product, i) => (
                 <tr key={product.id}
-                  style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                  style={{ borderBottom: i < products.length - 1 ? '1px solid #f8fafc' : 'none' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                   onMouseLeave={e => e.currentTarget.style.background = 'white'}>
                   <td className="px-5 py-3.5">
@@ -201,24 +207,22 @@ function Products() {
         </table>
       </div>
 
-      {/* ── MOBILE CARDS ── */}
+      {/* MOBILE CARDS */}
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="text-center py-16">
             <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
             <p style={{ color: '#94a3b8' }}>Loading products...</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : products.length === 0 ? (
           <div className="text-center py-16">
             <MdInventory size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
             <p style={{ color: '#94a3b8' }}>No products found</p>
           </div>
         ) : (
-          filtered.map(product => (
+          products.map(product => (
             <div key={product.id} className="bg-white rounded-xl p-4"
               style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
-              {/* Top row: avatar + name + actions */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
@@ -244,8 +248,6 @@ function Products() {
                   </button>
                 </div>
               </div>
-
-              {/* Bottom row: prices + stock */}
               <div className="grid grid-cols-3 gap-2 pt-3"
                 style={{ borderTop: '1px solid #f8fafc' }}>
                 <div>
@@ -276,12 +278,36 @@ function Products() {
         )}
       </div>
 
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-2">
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
+            Page {page + 1} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchProducts(page - 1, search)}
+              disabled={page === 0}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+              style={{ background: '#f1f5f9', color: page === 0 ? '#cbd5e1' : '#0f172a' }}>
+              Previous
+            </button>
+            <button
+              onClick={() => fetchProducts(page + 1, search)}
+              disabled={page >= totalPages - 1}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+              style={{ background: '#f1f5f9', color: page >= totalPages - 1 ? '#cbd5e1' : '#0f172a' }}>
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-screen overflow-y-auto">
-
             <div className="flex items-center justify-between px-5 py-4 sticky top-0 bg-white"
               style={{ borderBottom: '1px solid #f1f5f9', zIndex: 1 }}>
               <div>
@@ -297,8 +323,6 @@ function Products() {
                 <MdClose size={20} />
               </button>
             </div>
-
-            {/* 1 col on mobile, 2 col on desktop */}
             <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {fields.map(({ label, key, col }) => (
                 <div key={key} className={col === 2 ? 'sm:col-span-2' : ''}>
@@ -317,7 +341,6 @@ function Products() {
                 </div>
               ))}
             </div>
-
             <div className="flex gap-3 px-5 py-4 sticky bottom-0 bg-white"
               style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleSubmit}
