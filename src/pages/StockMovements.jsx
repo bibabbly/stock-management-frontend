@@ -24,7 +24,7 @@ function StockMovements() {
   const [totalOut, setTotalOut] = useState(0)
   const [form, setForm] = useState({ productId: '', supplierId: '', quantity: 1, note: '' })
 
-  const fetchMovements = (pageNum = 0, type = filter, searchVal = search, size = pageSize) => {
+  const fetchMovements = (pageNum = 0, type = 'ALL', searchVal = '', size = 20) => {
     setLoading(true)
     api.get(`/stock-movements/shop/${shopId}?page=${pageNum}&size=${size}&type=${type}&search=${searchVal}`)
       .then(res => {
@@ -39,20 +39,23 @@ function StockMovements() {
   }
 
   const fetchSummary = () => {
-    api.get(`/stock-movements/shop/${shopId}?page=0&size=10000&type=IN`)
-      .then(res => setTotalIn(res.data.content?.reduce((s, m) => s + m.quantity, 0) || 0))
-    api.get(`/stock-movements/shop/${shopId}?page=0&size=10000&type=OUT`)
-      .then(res => setTotalOut(res.data.content?.reduce((s, m) => s + m.quantity, 0) || 0))
+    api.get(`/stock-movements/shop/${shopId}?page=0&size=1&type=IN`)
+      .then(res => setTotalIn(res.data.totalElements || 0))
+      .catch(() => {})
+    api.get(`/stock-movements/shop/${shopId}?page=0&size=1&type=OUT`)
+      .then(res => setTotalOut(res.data.totalElements || 0))
+      .catch(() => {})
   }
 
   useEffect(() => {
-    fetchMovements()
+    fetchMovements(0, 'ALL', '', 20)
     fetchSummary()
     api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
     api.get(`/suppliers/shop/${shopId}/all`).then(res => setSuppliers(res.data))
   }, [])
 
   useEffect(() => {
+    if (search === '' && page === 0) return
     const timer = setTimeout(() => fetchMovements(0, filter, search, pageSize), 400)
     return () => clearTimeout(timer)
   }, [search])
@@ -142,7 +145,10 @@ function StockMovements() {
           style={{ color: '#0f172a' }}
         />
         {search && (
-          <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
+          <button onClick={() => {
+            setSearch('')
+            fetchMovements(0, filter, '', pageSize)
+          }} style={{ color: '#94a3b8' }}>
             <MdClose size={18} />
           </button>
         )}
