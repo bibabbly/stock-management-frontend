@@ -12,6 +12,7 @@ function Users() {
   const [showModal, setShowModal] = useState(false)
   const [editUser, setEditUser] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', shopRoleId: '' })
 
   const fetchUsers = () => {
@@ -39,6 +40,8 @@ function Users() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     const payload = {
       name: form.name, email: form.email, password: form.password,
       shop: { id: shopId }, role: 'CASHIER',
@@ -54,6 +57,8 @@ function Users() {
       fetchUsers()
     } catch (err) {
       console.error(err)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -89,7 +94,7 @@ function Users() {
         </button>
       </div>
 
-      {/* ── DESKTOP TABLE ── */}
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
@@ -161,7 +166,7 @@ function Users() {
         </table>
       </div>
 
-      {/* ── MOBILE CARDS ── */}
+      {/* MOBILE CARDS */}
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="text-center py-16">
@@ -218,17 +223,15 @@ function Users() {
         )}
       </div>
 
-      {/* Modal — slides up from bottom */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
-
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -244,7 +247,6 @@ function Users() {
                 <MdClose size={20} />
               </button>
             </div>
-
             <div className="px-5 py-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Full Name</label>
@@ -301,12 +303,15 @@ function Users() {
                 </select>
               </div>
             </div>
-
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleSubmit}
+                disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                {editUser ? 'Update User' : 'Create User'}
+                style={{
+                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : editUser ? 'Update User' : 'Create User'}
               </button>
               <button onClick={() => setShowModal(false)}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"

@@ -23,6 +23,7 @@ function Roles() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editRole, setEditRole] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ name: '', permissions: [] })
 
   const fetchRoles = () => {
@@ -59,6 +60,8 @@ function Roles() {
   const clearAll = () => setForm(prev => ({ ...prev, permissions: [] }))
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     const payload = { name: form.name, permissions: form.permissions, shop: { id: shopId } }
     try {
       if (editRole) {
@@ -70,6 +73,8 @@ function Roles() {
       fetchRoles()
     } catch (err) {
       console.error(err)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -82,7 +87,6 @@ function Roles() {
 
   return (
     <Layout>
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold mb-1" style={{ color: '#0f172a' }}>Roles</h1>
@@ -97,14 +101,12 @@ function Roles() {
         </button>
       </div>
 
-      {/* Roles Grid — 1 col mobile, 2 col tablet, 3 col desktop */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
         </div>
       ) : roles.length === 0 ? (
-        <div className="bg-white rounded-xl p-16 text-center"
-          style={{ border: '1px solid #f1f5f9' }}>
+        <div className="bg-white rounded-xl p-16 text-center" style={{ border: '1px solid #f1f5f9' }}>
           <MdAdminPanelSettings size={48} style={{ color: '#e2e8f0', margin: '0 auto 12px' }} />
           <p style={{ color: '#94a3b8' }}>No roles yet. Create your first role!</p>
         </div>
@@ -113,7 +115,6 @@ function Roles() {
           {roles.map(role => (
             <div key={role.id} className="bg-white rounded-xl p-5"
               style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
@@ -129,19 +130,15 @@ function Roles() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleEdit(role)}
-                    className="p-1.5 rounded-lg"
-                    style={{ color: '#3b82f6', background: '#eff6ff' }}>
+                    className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
                     <MdEdit size={16} />
                   </button>
                   <button onClick={() => handleDelete(role.id)}
-                    className="p-1.5 rounded-lg"
-                    style={{ color: '#ef4444', background: '#fef2f2' }}>
+                    className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
                     <MdDelete size={16} />
                   </button>
                 </div>
               </div>
-
-              {/* Permissions badges */}
               <div className="flex flex-wrap gap-1.5">
                 {ALL_PAGES.map(page => (
                   <span key={page.key}
@@ -160,19 +157,14 @@ function Roles() {
         </div>
       )}
 
-      {/* Modal — slides up from bottom on mobile, centered on desktop */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl flex flex-col"
             style={{ borderRadius: '20px 20px 0 0', maxHeight: '92vh' }}>
-
-            {/* Drag handle — mobile only */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
-            {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -186,15 +178,9 @@ function Roles() {
                 <MdClose size={20} />
               </button>
             </div>
-
-            {/* Modal Body — scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
-
-              {/* Role Name */}
               <div className="mb-4">
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
-                  Role Name
-                </label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Role Name</label>
                 <input type="text" value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
                   placeholder="e.g. Cashier, Manager"
@@ -203,13 +189,9 @@ function Roles() {
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
               </div>
-
-              {/* Permissions */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-semibold" style={{ color: '#64748b' }}>
-                    Page Permissions
-                  </label>
+                  <label className="text-xs font-semibold" style={{ color: '#64748b' }}>Page Permissions</label>
                   <div className="flex gap-2">
                     <button onClick={selectAll} className="text-xs font-semibold" style={{ color: '#3b82f6' }}>
                       Select All
@@ -220,8 +202,6 @@ function Roles() {
                     </button>
                   </div>
                 </div>
-
-                {/* Permission toggles — larger tap targets on mobile */}
                 <div className="space-y-2">
                   {ALL_PAGES.map(page => (
                     <div key={page.key}
@@ -231,9 +211,7 @@ function Roles() {
                         background: form.permissions.includes(page.key) ? '#eff6ff' : '#f8fafc',
                         border: `2px solid ${form.permissions.includes(page.key) ? '#bfdbfe' : '#f1f5f9'}`
                       }}>
-                      <span className="text-sm font-medium" style={{ color: '#0f172a' }}>
-                        {page.label}
-                      </span>
+                      <span className="text-sm font-medium" style={{ color: '#0f172a' }}>{page.label}</span>
                       <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
                         style={{
                           background: form.permissions.includes(page.key)
@@ -248,13 +226,15 @@ function Roles() {
                 </div>
               </div>
             </div>
-
-            {/* Modal Footer — sticky */}
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleSubmit}
+                disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                {editRole ? 'Update Role' : 'Create Role'}
+                style={{
+                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : editRole ? 'Update Role' : 'Create Role'}
               </button>
               <button onClick={() => setShowModal(false)}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"

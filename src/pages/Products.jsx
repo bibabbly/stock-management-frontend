@@ -14,6 +14,7 @@ function Products() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+  const [submitting, setSubmitting] = useState(false)
   const { shopId } = useAuth()
   const [editProduct, setEditProduct] = useState(null)
   const [form, setForm] = useState({
@@ -50,6 +51,8 @@ function Products() {
   }
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     const payload = { ...form, shopId }
     try {
       if (editProduct) {
@@ -62,6 +65,8 @@ function Products() {
       fetchProducts(page, search, pageSize)
     } catch (err) {
       console.error(err)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -330,10 +335,15 @@ function Products() {
             </div>
             <div className="flex gap-3 px-5 py-4 sticky bottom-0 bg-white"
               style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button onClick={handleSubmit}
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
                 className="flex-1 text-white py-2.5 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                {editProduct ? 'Update Product' : 'Save Product'}
+                style={{
+                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : editProduct ? 'Update Product' : 'Save Product'}
               </button>
               <button onClick={() => setShowModal(false)}
                 className="px-5 py-2.5 rounded-xl font-semibold text-sm"

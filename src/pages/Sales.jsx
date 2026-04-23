@@ -18,6 +18,7 @@ function Sales() {
   const [items, setItems] = useState([{ productId: '', quantity: 1 }])
   const [selectedSale, setSelectedSale] = useState(null)
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
@@ -65,6 +66,8 @@ function Sales() {
   }, 0)
 
   const handleSubmit = async () => {
+    if (submitting) return
+    setSubmitting(true)
     setError('')
     try {
       await api.post('/sales', {
@@ -82,6 +85,8 @@ function Sales() {
       fetchSales(0, pageSize)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -389,10 +394,15 @@ function Sales() {
             </div>
 
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button onClick={handleSubmit}
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                Complete Sale
+                style={{
+                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Processing...' : 'Complete Sale'}
               </button>
               <button onClick={() => { setShowModal(false); setError('') }}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"
