@@ -2,37 +2,74 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/api'
 import { useAuth } from '../context/AuthContext'
-import { MdAdd, MdClose, MdSwapVert, MdArrowUpward, MdArrowDownward } from 'react-icons/md'
+import { MdAdd, MdClose, MdSwapVert, MdArrowUpward, MdArrowDownward, MdSearch } from 'react-icons/md'
+import Pagination from '../components/Pagination'
 
 function StockMovements() {
-  const { shopId } = useAuth()
+  const { shopId, userId } = useAuth()
   const [movements, setMovements] = useState([])
   const [products, setProducts] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [filter, setFilter] = useState('ALL')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+  const [totalIn, setTotalIn] = useState(0)
+  const [totalOut, setTotalOut] = useState(0)
   const [form, setForm] = useState({ productId: '', supplierId: '', quantity: 1, note: '' })
 
-  const fetchMovements = () => {
-    api.get(`/stock-movements/shop/${shopId}`)
-      .then(res => setMovements(Array.isArray(res.data) ? res.data : []))
+  const fetchMovements = (pageNum = 0, type = filter, searchVal = search, size = pageSize) => {
+    setLoading(true)
+    api.get(`/stock-movements/shop/${shopId}?page=${pageNum}&size=${size}&type=${type}&search=${searchVal}`)
+      .then(res => {
+        setMovements(res.data.content || [])
+        setTotalPages(res.data.totalPages || 0)
+        setTotalElements(res.data.totalElements || 0)
+        setPage(pageNum)
+        setPageSize(size)
+      })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
   }
 
+  const fetchSummary = () => {
+    api.get(`/stock-movements/shop/${shopId}?page=0&size=10000&type=IN`)
+      .then(res => setTotalIn(res.data.content?.reduce((s, m) => s + m.quantity, 0) || 0))
+    api.get(`/stock-movements/shop/${shopId}?page=0&size=10000&type=OUT`)
+      .then(res => setTotalOut(res.data.content?.reduce((s, m) => s + m.quantity, 0) || 0))
+  }
+
   useEffect(() => {
     fetchMovements()
-    api.get(`/products/shop/${shopId}`).then(res => setProducts(res.data))
-    api.get(`/suppliers/shop/${shopId}`).then(res => setSuppliers(res.data))
+    fetchSummary()
+    api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
+    api.get(`/suppliers/shop/${shopId}/all`).then(res => setSuppliers(res.data))
   }, [])
 
+  useEffect(() => {
+    const timer = setTimeout(() => fetchMovements(0, filter, search, pageSize), 400)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter)
+    fetchMovements(0, newFilter, search, pageSize)
+  }
+
   const handleRestock = async () => {
+    if (submitting) return
     setError('')
+    setSubmitting(true)
     try {
       await api.post('/stock-movements/restock', {
         shopId,
+        userId,
         productId: parseInt(form.productId),
         supplierId: parseInt(form.supplierId),
         quantity: parseInt(form.quantity),
@@ -40,15 +77,14 @@ function StockMovements() {
       })
       setShowModal(false)
       setForm({ productId: '', supplierId: '', quantity: 1, note: '' })
-      fetchMovements()
+      fetchMovements(0, filter, search, pageSize)
+      fetchSummary()
     } catch (err) {
       setError('Failed to restock. Please check all fields.')
+    } finally {
+      setSubmitting(false)
     }
   }
-
-  const filtered = filter === 'ALL' ? movements : movements.filter(m => m.type === filter)
-  const totalIn = movements.filter(m => m.type === 'IN').reduce((s, m) => s + m.quantity, 0)
-  const totalOut = movements.filter(m => m.type === 'OUT').reduce((s, m) => s + m.quantity, 0)
 
   return (
     <Layout>
@@ -56,7 +92,7 @@ function StockMovements() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Stock Movements</h1>
-          <p className="text-xs" style={{ color: '#94a3b8' }}>{movements.length} total movements</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} total movements</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -67,7 +103,7 @@ function StockMovements() {
         </button>
       </div>
 
-      {/* Summary Cards — already 2 cols, works on mobile */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3 mb-5">
         <div className="bg-white rounded-xl p-4 flex items-center gap-3"
           style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -93,11 +129,30 @@ function StockMovements() {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
+        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <MdSearch size={20} style={{ color: '#94a3b8' }} />
+        <input
+          type="text"
+          placeholder="Search by product name..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 text-sm focus:outline-none"
+          style={{ color: '#0f172a' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
+            <MdClose size={18} />
+          </button>
+        )}
+      </div>
+
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-4">
         {['ALL', 'IN', 'OUT'].map(tab => (
           <button key={tab}
-            onClick={() => setFilter(tab)}
+            onClick={() => handleFilterChange(tab)}
             className="flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-semibold transition-all"
             style={{
               background: filter === tab ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
@@ -110,7 +165,7 @@ function StockMovements() {
         ))}
       </div>
 
-      {/* ── DESKTOP TABLE ── */}
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
@@ -128,15 +183,15 @@ function StockMovements() {
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading movements...</p>
               </td></tr>
-            ) : filtered.length === 0 ? (
+            ) : movements.length === 0 ? (
               <tr><td colSpan="5" className="text-center py-16">
                 <MdSwapVert size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No movements found</p>
               </td></tr>
             ) : (
-              filtered.map((movement, i) => (
+              movements.map((movement, i) => (
                 <tr key={movement.id}
-                  style={{ borderBottom: i < filtered.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                  style={{ borderBottom: i < movements.length - 1 ? '1px solid #f8fafc' : 'none' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                   onMouseLeave={e => e.currentTarget.style.background = 'white'}>
                   <td className="px-5 py-3.5">
@@ -181,24 +236,22 @@ function StockMovements() {
         </table>
       </div>
 
-      {/* ── MOBILE CARDS ── */}
+      {/* MOBILE CARDS */}
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="text-center py-16">
             <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
             <p style={{ color: '#94a3b8' }}>Loading movements...</p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : movements.length === 0 ? (
           <div className="text-center py-16">
             <MdSwapVert size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
             <p style={{ color: '#94a3b8' }}>No movements found</p>
           </div>
         ) : (
-          filtered.map(movement => (
+          movements.map(movement => (
             <div key={movement.id} className="bg-white rounded-xl p-4"
               style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
-              {/* Top: product + type badge */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
@@ -218,8 +271,6 @@ function StockMovements() {
                   {movement.type}
                 </span>
               </div>
-
-              {/* Bottom: qty + date + note */}
               <div className="flex items-center justify-between pt-3"
                 style={{ borderTop: '1px solid #f8fafc' }}>
                 <div>
@@ -245,14 +296,23 @@ function StockMovements() {
         )}
       </div>
 
-      {/* ── RESTOCK MODAL — slides up from bottom ── */}
+      {/* Pagination */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={totalElements}
+        pageSize={pageSize}
+        onPageChange={(p) => fetchMovements(p, filter, search, pageSize)}
+        onPageSizeChange={(s) => fetchMovements(0, filter, search, s)}
+      />
+
+      {/* RESTOCK MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
 
-            {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
@@ -274,7 +334,6 @@ function StockMovements() {
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
               )}
 
-              {/* Product */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <select value={form.productId}
@@ -290,7 +349,6 @@ function StockMovements() {
                 </select>
               </div>
 
-              {/* Supplier */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier</label>
                 <select value={form.supplierId}
@@ -306,7 +364,6 @@ function StockMovements() {
                 </select>
               </div>
 
-              {/* Quantity stepper */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -331,7 +388,6 @@ function StockMovements() {
                 </div>
               </div>
 
-              {/* Note */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
                 <input type="text" value={form.note}
@@ -345,10 +401,15 @@ function StockMovements() {
             </div>
 
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button onClick={handleRestock}
+              <button
+                onClick={handleRestock}
+                disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                Confirm Restock
+                style={{
+                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                  cursor: submitting ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : 'Confirm Restock'}
               </button>
               <button onClick={() => { setShowModal(false); setError('') }}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"
