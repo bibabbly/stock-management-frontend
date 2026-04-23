@@ -17,17 +17,27 @@ function Sales() {
   const [items, setItems] = useState([{ productId: '', quantity: 1 }])
   const [selectedSale, setSelectedSale] = useState(null)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 20
 
-  const fetchSales = () => {
-    api.get(`/sales/shop/${shopId}`)
-      .then(res => setSales(Array.isArray(res.data) ? res.data : []))
+  const fetchSales = (pageNum = 0) => {
+    setLoading(true)
+    api.get(`/sales/shop/${shopId}?page=${pageNum}&size=${PAGE_SIZE}`)
+      .then(res => {
+        setSales(res.data.content || [])
+        setTotalPages(res.data.totalPages || 0)
+        setTotalElements(res.data.totalElements || 0)
+        setPage(pageNum)
+      })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
   }
 
   useEffect(() => {
     fetchSales()
-    api.get(`/products/shop/${shopId}`).then(res => setProducts(res.data))
+    api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
     api.get(`/suppliers/shop/${shopId}`).then(res => {
       const list = res.data
       const hasCashNorm = list.some(s => s.name === 'CashNorm')
@@ -67,7 +77,7 @@ function Sales() {
       setItems([{ productId: '', quantity: 1 }])
       setPaymentMethod('CASH')
       setSupplierId('')
-      fetchSales()
+      fetchSales(0)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
     }
@@ -85,7 +95,7 @@ function Sales() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Sales</h1>
-          <p className="text-xs" style={{ color: '#94a3b8' }}>{sales.length} total transactions</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} total transactions</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -98,7 +108,7 @@ function Sales() {
         </button>
       </div>
 
-      {/* ── DESKTOP TABLE ── */}
+      {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <table className="w-full text-sm">
@@ -174,7 +184,7 @@ function Sales() {
         </table>
       </div>
 
-      {/* ── MOBILE CARDS ── */}
+      {/* MOBILE CARDS */}
       <div className="md:hidden space-y-3">
         {loading ? (
           <div className="text-center py-16">
@@ -190,8 +200,6 @@ function Sales() {
           sales.map(sale => (
             <div key={sale.id} className="bg-white rounded-xl p-4"
               style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-
-              {/* Top: date + total + print */}
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
@@ -216,8 +224,6 @@ function Sales() {
                   </button>
                 </div>
               </div>
-
-              {/* Items */}
               <div className="flex flex-wrap gap-1 mb-2">
                 {sale.items?.map(item => (
                   <span key={item.id} className="px-2 py-0.5 rounded-full text-xs"
@@ -226,8 +232,6 @@ function Sales() {
                   </span>
                 ))}
               </div>
-
-              {/* Supplier */}
               <p className="text-xs" style={{ color: '#94a3b8' }}>
                 Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>
                   {sale.supplier?.name || 'CashNorm'}
@@ -238,23 +242,42 @@ function Sales() {
         )}
       </div>
 
-      {/* ── NEW SALE MODAL ── */}
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-2">
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
+            Page {page + 1} of {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => fetchSales(page - 1)}
+              disabled={page === 0}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+              style={{ background: '#f1f5f9', color: page === 0 ? '#cbd5e1' : '#0f172a' }}>
+              Previous
+            </button>
+            <button
+              onClick={() => fetchSales(page + 1)}
+              disabled={page >= totalPages - 1}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+              style={{ background: '#f1f5f9', color: page >= totalPages - 1 ? '#cbd5e1' : '#0f172a' }}>
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* NEW SALE MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
-          {/* On mobile: slides up from bottom. On desktop: centered */}
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl shadow-2xl flex flex-col"
-            style={{
-              borderRadius: '20px 20px 0 0',
-              maxHeight: '92vh'
-            }}>
+            style={{ borderRadius: '20px 20px 0 0', maxHeight: '92vh' }}>
 
-            {/* Drag handle on mobile */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
 
-            {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -267,7 +290,6 @@ function Sales() {
               </button>
             </div>
 
-            {/* Modal Body — scrollable */}
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">
@@ -337,7 +359,6 @@ function Sales() {
                           </option>
                         ))}
                       </select>
-                      {/* Qty stepper — easier on mobile than typing */}
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
@@ -372,7 +393,6 @@ function Sales() {
                 </button>
               </div>
 
-              {/* Total Preview */}
               {formTotal > 0 && (
                 <div className="rounded-xl p-4 flex items-center justify-between"
                   style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
@@ -384,7 +404,6 @@ function Sales() {
               )}
             </div>
 
-            {/* Modal Footer — sticky at bottom */}
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleSubmit}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
@@ -401,7 +420,6 @@ function Sales() {
         </div>
       )}
 
-      {/* Receipt Modal */}
       {selectedSale && (
         <Receipt sale={selectedSale} onClose={() => setSelectedSale(null)} />
       )}
