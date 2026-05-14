@@ -15,6 +15,9 @@ import Register from './pages/Register'
 import RegisterShop from './pages/RegisterShop'
 import Roles from './pages/Roles'
 import Users from './pages/Users'
+import AdminLogin from './pages/admin/AdminLogin'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminRoute from './components/AdminRoute'
 
 // Protects pages from unauthenticated access
 function PrivateRoute({ children }) {
@@ -39,6 +42,8 @@ function App() {
         <Route path="/register-shop" element={<RegisterShop />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
+           <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       </Routes>
     </AuthProvider>
   )
