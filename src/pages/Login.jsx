@@ -31,7 +31,7 @@ function Login() {
       login(userData, response.data.token)
       navigate('/')
     } catch (err) {
-      setError('Invalid email or password')
+      setError(err.response?.data || 'Invalid email or password')
     } finally {
       setLoading(false)
     }
