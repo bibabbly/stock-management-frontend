@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../api/api'
-import { MdAdd, MdClose, MdLogout, MdStore } from 'react-icons/md'
+import { MdAdd, MdClose, MdLogout } from 'react-icons/md'
 
 function AdminDashboard() {
   const { logout } = useAuth()
@@ -11,6 +11,8 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sendStatus, setSendStatus] = useState('')
   const [form, setForm] = useState({
     name: '', email: '', phone: '', address: '', ownerEmail: ''
   })
@@ -44,6 +46,32 @@ function AdminDashboard() {
   const handleLogout = () => {
     logout()
     navigate('/admin/login')
+  }
+
+  const handleSendReports = async () => {
+    if (sending) return
+    setSending(true)
+    setSendStatus('')
+    try {
+      await api.post('/reports/send-daily')
+      setSendStatus('✅ Reports sent to all shops!')
+    } catch (err) {
+      setSendStatus('❌ Failed to send reports')
+    } finally {
+      setSending(false)
+      setTimeout(() => setSendStatus(''), 5000)
+    }
+  }
+
+  const handleSendShopReport = async (shopId) => {
+    try {
+      await api.post(`/reports/send-daily/${shopId}`)
+      setSendStatus('✅ Report sent!')
+      setTimeout(() => setSendStatus(''), 3000)
+    } catch (err) {
+      setSendStatus('❌ Failed to send report')
+      setTimeout(() => setSendStatus(''), 3000)
+    }
   }
 
   return (
@@ -96,14 +124,32 @@ function AdminDashboard() {
         {/* Shops list header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h2 style={{ color: '#0f172a', fontSize: '18px', fontWeight: 700, margin: 0 }}>All Shops</h2>
-          <button onClick={() => setShowModal(true)} style={{
-            display: 'flex', alignItems: 'center', gap: '6px', color: 'white',
-            background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-            border: 'none', padding: '10px 20px', borderRadius: '12px',
-            cursor: 'pointer', fontSize: '13px', fontWeight: 600
-          }}>
-            <MdAdd size={18} /> New Shop
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {sendStatus && (
+              <span style={{
+                fontSize: '13px',
+                color: sendStatus.includes('✅') ? '#16a34a' : '#ef4444'
+              }}>
+                {sendStatus}
+              </span>
+            )}
+            <button onClick={handleSendReports} disabled={sending} style={{
+              display: 'flex', alignItems: 'center', gap: '6px', color: 'white',
+              background: sending ? '#94a3b8' : 'linear-gradient(135deg, #10b981, #34d399)',
+              border: 'none', padding: '10px 20px', borderRadius: '12px',
+              cursor: sending ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600
+            }}>
+              📧 {sending ? 'Sending...' : 'Send Reports'}
+            </button>
+            <button onClick={() => setShowModal(true)} style={{
+              display: 'flex', alignItems: 'center', gap: '6px', color: 'white',
+              background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+              border: 'none', padding: '10px 20px', borderRadius: '12px',
+              cursor: 'pointer', fontSize: '13px', fontWeight: 600
+            }}>
+              <MdAdd size={18} /> New Shop
+            </button>
+          </div>
         </div>
 
         {/* Shops table */}
@@ -114,7 +160,7 @@ function AdminDashboard() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                {['Shop', 'Email', 'Phone', 'Owner Email', 'Status', 'Action'].map(h => (
+                {['Shop', 'Email', 'Phone', 'Owner Email', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{
                     padding: '12px 20px', textAlign: 'left', fontSize: '11px',
                     fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase'
@@ -157,14 +203,23 @@ function AdminDashboard() {
                     }}>{shop.active ? 'Active' : 'Inactive'}</span>
                   </td>
                   <td style={{ padding: '14px 20px' }}>
-                    <button onClick={() => handleToggle(shop.id)} style={{
-                      padding: '6px 16px', borderRadius: '8px', fontSize: '12px',
-                      fontWeight: 600, border: 'none', cursor: 'pointer',
-                      background: shop.active ? '#fef2f2' : '#f0fdf4',
-                      color: shop.active ? '#ef4444' : '#16a34a'
-                    }}>
-                      {shop.active ? 'Disable' : 'Enable'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => handleSendShopReport(shop.id)} style={{
+                        padding: '6px 12px', borderRadius: '8px', fontSize: '12px',
+                        fontWeight: 600, border: 'none', cursor: 'pointer',
+                        background: '#eff6ff', color: '#3b82f6'
+                      }} title="Send Report">
+                        📧
+                      </button>
+                      <button onClick={() => handleToggle(shop.id)} style={{
+                        padding: '6px 16px', borderRadius: '8px', fontSize: '12px',
+                        fontWeight: 600, border: 'none', cursor: 'pointer',
+                        background: shop.active ? '#fef2f2' : '#f0fdf4',
+                        color: shop.active ? '#ef4444' : '#16a34a'
+                      }}>
+                        {shop.active ? 'Disable' : 'Enable'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
