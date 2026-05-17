@@ -18,18 +18,24 @@ function SalesReport() {
     setLoading(true)
     try {
       const [salesRes, shopRes] = await Promise.all([
-        api.get(`/sales/shop/${shopId}`),
+        api.get(`/sales/shop/${shopId}`, {
+          params: { page: 0, size: 1000 }
+        }),
         api.get(`/shops/${shopId}`)
       ])
       setShop(shopRes.data)
-      const filtered = salesRes.data.filter(sale => {
+
+      const allSales = salesRes.data.content ?? []
+
+      const filtered = allSales.filter(sale => {
         const saleDate = new Date(sale.date)
         return saleDate >= new Date(startDate) && saleDate <= new Date(endDate + 'T23:59:59')
       })
+
       setSales(filtered)
       setSearched(true)
     } catch (err) {
-      console.error(err)
+      console.error('Sales report error:', err)
     } finally {
       setLoading(false)
     }
@@ -65,7 +71,7 @@ function SalesReport() {
         )}
       </div>
 
-      {/* Date Filter — stacks on mobile */}
+      {/* Date Filter */}
       <div className="bg-white rounded-xl p-4 mb-5 no-print"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -116,7 +122,7 @@ function SalesReport() {
             <p className="text-sm">From: {startDate} To: {endDate}</p>
           </div>
 
-          {/* Summary Cards — 1 col mobile, 3 col desktop */}
+          {/* Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
             {[
               { label: 'Total Sales', value: sales.length, color: 'linear-gradient(135deg, #3b82f6, #06b6d4)' },
@@ -133,7 +139,7 @@ function SalesReport() {
             ))}
           </div>
 
-          {/* ── DESKTOP TABLE ── */}
+          {/* DESKTOP TABLE */}
           <div className="hidden md:block bg-white rounded-xl overflow-hidden"
             style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <table className="w-full text-sm">
@@ -201,7 +207,7 @@ function SalesReport() {
             </table>
           </div>
 
-          {/* ── MOBILE CARDS ── */}
+          {/* MOBILE CARDS */}
           <div className="md:hidden space-y-3">
             {sales.length === 0 ? (
               <div className="text-center py-16">
@@ -241,7 +247,6 @@ function SalesReport() {
                     </div>
                   </div>
                 ))}
-                {/* Total footer */}
                 <div className="rounded-xl p-4 flex items-center justify-between"
                   style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
                   <span className="text-sm font-bold" style={{ color: '#64748b' }}>TOTAL REVENUE</span>
