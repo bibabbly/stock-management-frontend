@@ -14,32 +14,45 @@ function SalesReport() {
   const [shop, setShop] = useState(null)
 
   const fetchReport = async () => {
-    if (!startDate || !endDate) return
-    setLoading(true)
-    try {
-      const [salesRes, shopRes] = await Promise.all([
-        api.get(`/sales/shop/${shopId}`, {
-          params: { page: 0, size: 1000 }
-        }),
-        api.get(`/shops/${shopId}`)
-      ])
-      setShop(shopRes.data)
+  if (!startDate || !endDate) return
+  setLoading(true)
+  try {
+    const salesRes = await api.get(`/sales/shop/${shopId}`, {
+      params: { page: 0, size: 1000 }
+    })
+    console.log('Full response:', salesRes.data)
+    console.log('Content:', salesRes.data.content)
+    console.log('ShopId:', shopId)
+    console.log('StartDate:', startDate, 'EndDate:', endDate)
 
-      const allSales = salesRes.data.content ?? []
+    const shopRes = await api.get(`/shops/${shopId}`)
+    setShop(shopRes.data)
 
-      const filtered = allSales.filter(sale => {
-        const saleDate = new Date(sale.date)
-        return saleDate >= new Date(startDate) && saleDate <= new Date(endDate + 'T23:59:59')
-      })
+    const allSales = salesRes.data.content ?? []
+    console.log('All sales count:', allSales.length)
 
-      setSales(filtered)
-      setSearched(true)
-    } catch (err) {
-      console.error('Sales report error:', err)
-    } finally {
-      setLoading(false)
+    if (allSales.length > 0) {
+      console.log('First sale date:', allSales[0].date)
+      console.log('First sale:', allSales[0])
     }
+
+    const filtered = allSales.filter(sale => {
+      const saleDate = new Date(sale.date)
+      const start = new Date(startDate)
+      const end = new Date(endDate + 'T23:59:59')
+      console.log('Comparing:', saleDate, '>=', start, '<=', end, '->', saleDate >= start && saleDate <= end)
+      return saleDate >= start && saleDate <= end
+    })
+
+    console.log('Filtered count:', filtered.length)
+    setSales(filtered)
+    setSearched(true)
+  } catch (err) {
+    console.error('Sales report error:', err)
+  } finally {
+    setLoading(false)
   }
+}
 
   const totalRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0)
   const totalItems = sales.reduce((sum, s) => sum + (s.items?.length || 0), 0)
