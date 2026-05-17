@@ -15,7 +15,7 @@ function Sales() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('CASH')
-  const [items, setItems] = useState([{ productId: '', quantity: 1 }])
+  const [items, setItems] = useState([{ productId: '', quantity: 1, discountType: 'NONE', discountValue: '' }])
   const [selectedSale, setSelectedSale] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -23,8 +23,6 @@ function Sales() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
-  const [discountType, setDiscountType] = useState('NONE')
-  const [discountValue, setDiscountValue] = useState('')
 
   const fetchSales = (pageNum = 0, size = pageSize) => {
     setLoading(true)
@@ -54,12 +52,29 @@ function Sales() {
     })
   }, [])
 
-  const addItem = () => setItems([...items, { productId: '', quantity: 1 }])
+  const addItem = () => setItems([...items, { productId: '', quantity: 1, discountType: 'NONE', discountValue: '' }])
   const removeItem = (index) => setItems(items.filter((_, i) => i !== index))
   const updateItem = (index, field, value) => {
     const updated = [...items]
     updated[index][field] = value
+    if (field === 'discountType') updated[index].discountValue = ''
     setItems(updated)
+  }
+
+  const getItemDiscount = (item) => {
+    const product = products.find(p => p.id === parseInt(item.productId))
+    if (!product || item.discountType === 'NONE' || !item.discountValue) return 0
+    const subtotal = product.sellingPrice * parseInt(item.quantity || 0)
+    if (item.discountType === 'PERCENTAGE') return subtotal * (parseFloat(item.discountValue) / 100)
+    if (item.discountType === 'FIXED') return Math.min(parseFloat(item.discountValue), subtotal)
+    return 0
+  }
+
+  const getItemTotal = (item) => {
+    const product = products.find(p => p.id === parseInt(item.productId))
+    if (!product) return 0
+    const subtotal = product.sellingPrice * parseInt(item.quantity || 0)
+    return subtotal - getItemDiscount(item)
   }
 
   const formOriginal = items.reduce((sum, item) => {
@@ -67,14 +82,8 @@ function Sales() {
     return sum + (product ? product.sellingPrice * parseInt(item.quantity || 0) : 0)
   }, 0)
 
-  const formDiscount = () => {
-    if (discountType === 'NONE' || !discountValue || parseFloat(discountValue) <= 0) return 0
-    if (discountType === 'PERCENTAGE') return formOriginal * (parseFloat(discountValue) / 100)
-    if (discountType === 'FIXED') return Math.min(parseFloat(discountValue), formOriginal)
-    return 0
-  }
-
-  const formTotal = formOriginal - formDiscount()
+  const formTotalDiscount = items.reduce((sum, item) => sum + getItemDiscount(item), 0)
+  const formTotal = formOriginal - formTotalDiscount
 
   const handleSubmit = async () => {
     if (submitting) return
@@ -84,19 +93,17 @@ function Sales() {
       await api.post('/sales', {
         shopId, userId, paymentMethod,
         supplierId: supplierId && supplierId !== 'cashnorm' ? parseInt(supplierId) : null,
-        discountType: discountType === 'NONE' ? null : discountType,
-        discountValue: discountType === 'NONE' ? null : parseFloat(discountValue || 0),
         items: items.map(i => ({
           productId: parseInt(i.productId),
-          quantity: parseInt(i.quantity)
+          quantity: parseInt(i.quantity),
+          discountType: i.discountType === 'NONE' ? null : i.discountType,
+          discountValue: i.discountType === 'NONE' ? null : parseFloat(i.discountValue || 0)
         }))
       })
       setShowModal(false)
-      setItems([{ productId: '', quantity: 1 }])
+      setItems([{ productId: '', quantity: 1, discountType: 'NONE', discountValue: '' }])
       setPaymentMethod('CASH')
       setSupplierId('')
-      setDiscountType('NONE')
-      setDiscountValue('')
       fetchSales(0, pageSize)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
@@ -133,7 +140,7 @@ function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Date & Time', 'Items', 'Supplier', 'Payment', 'Discount', 'Total', 'By', 'Action'].map(h => (
+              {['Date & Time', 'Items', 'Supplier', 'Payment', 'Original', 'Discount', 'Total', 'By', 'Action'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: '#94a3b8' }}>{h}</th>
               ))}
@@ -141,12 +148,12 @@ function Sales() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="text-center py-16">
+              <tr><td colSpan="9" className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading sales...</p>
               </td></tr>
             ) : sales.length === 0 ? (
-              <tr><td colSpan="8" className="text-center py-16">
+              <tr><td colSpan="9" className="text-center py-16">
                 <MdPointOfSale size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No sales yet</p>
               </td></tr>
@@ -163,14 +170,23 @@ function Sales() {
                   <td className="px-4 py-3.5">
                     <div className="flex flex-wrap gap-1">
                       {sale.items?.map(item => (
-                        <span key={item.id} className="px-2 py-0.5 rounded-full text-xs"
-                          style={{ background: '#f1f5f9', color: '#64748b' }}>
-                          {item.product?.name} ×{item.quantity}
-                        </span>
+                        <div key={item.id} className="flex flex-col">
+                          <span className="px-2 py-0.5 rounded-full text-xs"
+                            style={{ background: '#f1f5f9', color: '#64748b' }}>
+                            {item.product?.name} ×{item.quantity}
+                          </span>
+                          {item.discountAmount > 0 && (
+                            <span className="text-xs px-2" style={{ color: '#ef4444' }}>
+                              -{item.discountType === 'PERCENTAGE'
+                                ? `${item.discountValue}%`
+                                : `RWF ${item.discountAmount?.toLocaleString()}`}
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3.5 text-xs font-medium" style={{ color: '#64748b' }}>
+                  <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
                     {sale.supplier?.name || <span style={{ color: '#cbd5e1' }}>CashNorm</span>}
                   </td>
                   <td className="px-4 py-3.5">
@@ -180,20 +196,16 @@ function Sales() {
                         color: paymentColors[sale.paymentMethod]?.color || '#64748b'
                       }}>{sale.paymentMethod}</span>
                   </td>
-                  <td className="px-4 py-3.5 text-xs" style={{ color: '#ef4444' }}>
-                    {sale.discountAmount > 0 ? (
-                      <span>
-                        -{sale.discountType === 'PERCENTAGE'
-                          ? `${sale.discountValue}%`
-                          : `RWF ${sale.discountAmount?.toLocaleString()}`}
-                      </span>
-                    ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                  <td className="px-4 py-3.5 text-sm" style={{ color: '#64748b' }}>
+                    RWF {sale.originalAmount?.toLocaleString()}
                   </td>
-                  <td className="px-4 py-3.5">
-                    <p className="font-bold text-sm" style={{ color: '#0f172a' }}>RWF {sale.totalAmount?.toLocaleString()}</p>
-                    {sale.discountAmount > 0 && (
-                      <p className="text-xs line-through" style={{ color: '#94a3b8' }}>RWF {sale.originalAmount?.toLocaleString()}</p>
-                    )}
+                  <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
+                    {sale.discountAmount > 0
+                      ? `- RWF ${sale.discountAmount?.toLocaleString()}`
+                      : <span style={{ color: '#cbd5e1' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3.5 font-bold" style={{ color: '#0f172a' }}>
+                    RWF {sale.totalAmount?.toLocaleString()}
                   </td>
                   <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
                     {sale.user?.name || '—'}
@@ -241,8 +253,11 @@ function Sales() {
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
                     {new Date(sale.date).toLocaleDateString()} · {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  {sale.user?.name && (
-                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>By: {sale.user.name}</p>
+                  {sale.user?.name && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>By: {sale.user.name}</p>}
+                  {sale.discountAmount > 0 && (
+                    <p className="text-xs mt-0.5" style={{ color: '#ef4444' }}>
+                      Discount: - RWF {sale.discountAmount?.toLocaleString()}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -257,22 +272,26 @@ function Sales() {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1 mb-2">
+              <div className="space-y-1">
                 {sale.items?.map(item => (
-                  <span key={item.id} className="px-2 py-0.5 rounded-full text-xs"
-                    style={{ background: '#f1f5f9', color: '#64748b' }}>
-                    {item.product?.name} ×{item.quantity}
-                  </span>
+                  <div key={item.id} className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded-full text-xs"
+                      style={{ background: '#f1f5f9', color: '#64748b' }}>
+                      {item.product?.name} ×{item.quantity}
+                    </span>
+                    {item.discountAmount > 0 && (
+                      <span className="text-xs" style={{ color: '#ef4444' }}>
+                        -{item.discountType === 'PERCENTAGE'
+                          ? `${item.discountValue}%`
+                          : `RWF ${item.discountAmount?.toLocaleString()}`}
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
-              <div className="flex items-center justify-between text-xs" style={{ color: '#94a3b8' }}>
-                <span>Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span></span>
-                {sale.discountAmount > 0 && (
-                  <span style={{ color: '#ef4444' }}>
-                    Discount: -{sale.discountType === 'PERCENTAGE' ? `${sale.discountValue}%` : `RWF ${sale.discountAmount?.toLocaleString()}`}
-                  </span>
-                )}
-              </div>
+              <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
+                Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span>
+              </p>
             </div>
           ))
         )}
@@ -344,79 +363,104 @@ function Sales() {
                 </select>
               </div>
 
-              {/* Products */}
+              {/* Products with per-item discount */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Products</label>
-                <div className="space-y-2">
-                  {items.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-center">
-                      <select value={item.productId}
-                        onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                        className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none"
-                        style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-                        onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                        onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
-                        <option value="">Select product</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} (×{p.quantity}) — RWF {p.sellingPrice?.toLocaleString()}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg"
-                          style={{ background: '#f1f5f9', color: '#64748b' }}>−</button>
-                        <span className="w-8 text-center text-sm font-bold" style={{ color: '#0f172a' }}>{item.quantity}</span>
-                        <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-lg"
-                          style={{ background: '#3b82f6', color: 'white' }}>+</button>
+                <div className="space-y-3">
+                  {items.map((item, index) => {
+                    const product = products.find(p => p.id === parseInt(item.productId))
+                    const itemSubtotal = product ? product.sellingPrice * parseInt(item.quantity || 0) : 0
+                    const itemDisc = getItemDiscount(item)
+                    const itemFinal = itemSubtotal - itemDisc
+
+                    return (
+                      <div key={index} className="rounded-xl p-3 space-y-2"
+                        style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
+
+                        {/* Product select + qty */}
+                        <div className="flex gap-2 items-center">
+                          <select value={item.productId}
+                            onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                            className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                            style={{ border: '2px solid #f1f5f9', background: 'white', color: '#0f172a' }}
+                            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                            onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
+                            <option value="">Select product</option>
+                            {products.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (×{p.quantity}) — RWF {p.sellingPrice?.toLocaleString()}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                              style={{ background: '#e2e8f0', color: '#64748b' }}>−</button>
+                            <span className="w-7 text-center text-sm font-bold" style={{ color: '#0f172a' }}>{item.quantity}</span>
+                            <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                              style={{ background: '#3b82f6', color: 'white' }}>+</button>
+                          </div>
+                          {items.length > 1 && (
+                            <button onClick={() => removeItem(index)}
+                              className="p-1.5 rounded-lg flex-shrink-0"
+                              style={{ color: '#ef4444', background: '#fef2f2' }}>
+                              <MdClose size={14} />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Discount toggle per item */}
+                        <div className="flex gap-1.5">
+                          {['NONE', 'PERCENTAGE', 'FIXED'].map(type => (
+                            <button key={type}
+                              onClick={() => updateItem(index, 'discountType', type)}
+                              className="flex-1 py-1.5 rounded-lg text-xs font-semibold"
+                              style={{
+                                background: item.discountType === type ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
+                                color: item.discountType === type ? 'white' : '#94a3b8',
+                                border: item.discountType === type ? 'none' : '1px solid #e2e8f0'
+                              }}>
+                              {type === 'NONE' ? 'No disc.' : type === 'PERCENTAGE' ? '% Off' : 'RWF Off'}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Discount input */}
+                        {item.discountType !== 'NONE' && (
+                          <input type="number" min="0"
+                            value={item.discountValue}
+                            onChange={e => updateItem(index, 'discountValue', e.target.value)}
+                            placeholder={item.discountType === 'PERCENTAGE' ? 'e.g. 10 for 10%' : 'e.g. 5000'}
+                            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+                            style={{ border: '1px solid #e2e8f0', background: 'white', color: '#0f172a' }}
+                            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                            onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                        )}
+
+                        {/* Item subtotal */}
+                        {itemSubtotal > 0 && (
+                          <div className="flex items-center justify-between text-xs pt-1">
+                            <span style={{ color: '#94a3b8' }}>
+                              {itemDisc > 0 && <span style={{ color: '#ef4444' }}>- RWF {itemDisc.toLocaleString()} </span>}
+                            </span>
+                            <span className="font-bold" style={{ color: '#0f172a' }}>
+                              RWF {itemFinal.toLocaleString()}
+                              {itemDisc > 0 && <span className="ml-1 line-through font-normal" style={{ color: '#94a3b8' }}>
+                                RWF {itemSubtotal.toLocaleString()}
+                              </span>}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {items.length > 1 && (
-                        <button onClick={() => removeItem(index)}
-                          className="p-2 rounded-xl flex-shrink-0"
-                          style={{ color: '#ef4444', background: '#fef2f2' }}>
-                          <MdClose size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
                 <button onClick={addItem}
                   className="mt-3 text-xs font-semibold flex items-center gap-1 px-3 py-2 rounded-lg"
                   style={{ color: '#3b82f6', background: '#eff6ff' }}>
                   <MdAdd size={16} /> Add another product
                 </button>
-              </div>
-
-              {/* Discount */}
-              <div className="mb-4">
-                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Discount (Optional)</label>
-                <div className="flex gap-2 mb-2">
-                  {['NONE', 'PERCENTAGE', 'FIXED'].map(type => (
-                    <button key={type} onClick={() => { setDiscountType(type); setDiscountValue('') }}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                      style={{
-                        background: discountType === type ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : '#f8fafc',
-                        color: discountType === type ? 'white' : '#64748b',
-                        border: discountType === type ? 'none' : '2px solid #f1f5f9'
-                      }}>
-                      {type === 'NONE' ? '🚫 None' : type === 'PERCENTAGE' ? '% Percent' : 'RWF Fixed'}
-                    </button>
-                  ))}
-                </div>
-                {discountType !== 'NONE' && (
-                  <input
-                    type="number" min="0"
-                    value={discountValue}
-                    onChange={e => setDiscountValue(e.target.value)}
-                    placeholder={discountType === 'PERCENTAGE' ? 'e.g. 10 (for 10%)' : 'e.g. 5000'}
-                    className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-                    style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-                    onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={e => e.target.style.borderColor = '#f1f5f9'}
-                  />
-                )}
               </div>
 
               {/* Total Summary */}
@@ -427,14 +471,10 @@ function Sales() {
                     <span className="text-sm" style={{ color: '#64748b' }}>Subtotal</span>
                     <span className="text-sm font-semibold" style={{ color: '#0f172a' }}>RWF {formOriginal.toLocaleString()}</span>
                   </div>
-                  {formDiscount() > 0 && (
+                  {formTotalDiscount > 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm" style={{ color: '#ef4444' }}>
-                        Discount {discountType === 'PERCENTAGE' ? `(${discountValue}%)` : ''}
-                      </span>
-                      <span className="text-sm font-semibold" style={{ color: '#ef4444' }}>
-                        - RWF {formDiscount().toLocaleString()}
-                      </span>
+                      <span className="text-sm" style={{ color: '#ef4444' }}>Total Discount</span>
+                      <span className="text-sm font-semibold" style={{ color: '#ef4444' }}>- RWF {formTotalDiscount.toLocaleString()}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between pt-2"
