@@ -13,36 +13,27 @@ function SalesReport() {
   const [searched, setSearched] = useState(false)
   const [shop, setShop] = useState(null)
 
-const fetchReport = async () => {
-  if (!startDate || !endDate) return
-  setLoading(true)
-  try {
-    // Fetch up to 1000 sales (paginated endpoint)
-    const [salesRes, shopRes] = await Promise.all([
-      api.get(`/sales/shop/${shopId}`, {
-        params: { page: 0, size: 1000 }
-      }),
-      api.get(`/shops/${shopId}`)
-    ])
-
-    setShop(shopRes.data)
-
-    // Backend returns Page<Sale>, so data is in .content
-    const allSales = salesRes.data.content ?? []
-
-    const filtered = allSales.filter(sale => {
-      const saleDate = new Date(sale.date)
-      return saleDate >= new Date(startDate) && saleDate <= new Date(endDate + 'T23:59:59')
-    })
-
-    setSales(filtered)
-    setSearched(true)
-  } catch (err) {
-    console.error('Sales report error:', err)
-  } finally {
-    setLoading(false)
+  const fetchReport = async () => {
+    if (!startDate || !endDate) return
+    setLoading(true)
+    try {
+      const [salesRes, shopRes] = await Promise.all([
+        api.get(`/sales/shop/${shopId}`),
+        api.get(`/shops/${shopId}`)
+      ])
+      setShop(shopRes.data)
+      const filtered = salesRes.data.filter(sale => {
+        const saleDate = new Date(sale.date)
+        return saleDate >= new Date(startDate) && saleDate <= new Date(endDate + 'T23:59:59')
+      })
+      setSales(filtered)
+      setSearched(true)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   const totalRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0)
   const totalItems = sales.reduce((sum, s) => sum + (s.items?.length || 0), 0)
