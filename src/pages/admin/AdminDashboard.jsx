@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../api/api'
-import { MdAdd, MdClose, MdLogout } from 'react-icons/md'
+import { MdAdd, MdClose, MdLogout, MdEdit } from 'react-icons/md'
 
 function AdminDashboard() {
   const { logout } = useAuth()
@@ -10,6 +10,9 @@ function AdminDashboard() {
   const [shops, setShops] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editShop, setEditShop] = useState(null)
+  const [editOwnerEmail, setEditOwnerEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sending, setSending] = useState(false)
   const [sendStatus, setSendStatus] = useState('')
@@ -74,6 +77,27 @@ function AdminDashboard() {
     }
   }
 
+  const openEditModal = (shop) => {
+    setEditShop(shop)
+    setEditOwnerEmail(shop.ownerEmail || '')
+    setShowEditModal(true)
+  }
+
+  const handleUpdateOwnerEmail = async () => {
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      await api.put(`/shops/${editShop.id}/owner-email`, { ownerEmail: editOwnerEmail })
+      setShowEditModal(false)
+      setEditShop(null)
+      fetchShops()
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc' }}>
       {/* Header */}
@@ -126,10 +150,7 @@ function AdminDashboard() {
           <h2 style={{ color: '#0f172a', fontSize: '18px', fontWeight: 700, margin: 0 }}>All Shops</h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {sendStatus && (
-              <span style={{
-                fontSize: '13px',
-                color: sendStatus.includes('✅') ? '#16a34a' : '#ef4444'
-              }}>
+              <span style={{ fontSize: '13px', color: sendStatus.includes('✅') ? '#16a34a' : '#ef4444' }}>
                 {sendStatus}
               </span>
             )}
@@ -178,9 +199,7 @@ function AdminDashboard() {
                   No shops yet
                 </td></tr>
               ) : shops.map((shop, i) => (
-                <tr key={shop.id} style={{
-                  borderBottom: i < shops.length - 1 ? '1px solid #f8fafc' : 'none'
-                }}>
+                <tr key={shop.id} style={{ borderBottom: i < shops.length - 1 ? '1px solid #f8fafc' : 'none' }}>
                   <td style={{ padding: '14px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <div style={{
@@ -194,7 +213,18 @@ function AdminDashboard() {
                   </td>
                   <td style={{ padding: '14px 20px', color: '#64748b' }}>{shop.email || '—'}</td>
                   <td style={{ padding: '14px 20px', color: '#64748b' }}>{shop.phone || '—'}</td>
-                  <td style={{ padding: '14px 20px', color: '#64748b' }}>{shop.ownerEmail || '—'}</td>
+                  <td style={{ padding: '14px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#64748b' }}>{shop.ownerEmail || '—'}</span>
+                      <button onClick={() => openEditModal(shop)} style={{
+                        background: '#eff6ff', border: 'none', borderRadius: '6px',
+                        padding: '4px 6px', cursor: 'pointer', color: '#3b82f6',
+                        display: 'flex', alignItems: 'center'
+                      }}>
+                        <MdEdit size={14} />
+                      </button>
+                    </div>
+                  </td>
                   <td style={{ padding: '14px 20px' }}>
                     <span style={{
                       padding: '4px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
@@ -208,17 +238,13 @@ function AdminDashboard() {
                         padding: '6px 12px', borderRadius: '8px', fontSize: '12px',
                         fontWeight: 600, border: 'none', cursor: 'pointer',
                         background: '#eff6ff', color: '#3b82f6'
-                      }} title="Send Report">
-                        📧
-                      </button>
+                      }} title="Send Report">📧</button>
                       <button onClick={() => handleToggle(shop.id)} style={{
                         padding: '6px 16px', borderRadius: '8px', fontSize: '12px',
                         fontWeight: 600, border: 'none', cursor: 'pointer',
                         background: shop.active ? '#fef2f2' : '#f0fdf4',
                         color: shop.active ? '#ef4444' : '#16a34a'
-                      }}>
-                        {shop.active ? 'Disable' : 'Enable'}
-                      </button>
+                      }}>{shop.active ? 'Disable' : 'Enable'}</button>
                     </div>
                   </td>
                 </tr>
@@ -228,12 +254,82 @@ function AdminDashboard() {
         </div>
       </div>
 
+      {/* Edit Owner Email Modal */}
+      {showEditModal && editShop && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '16px', zIndex: 50
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '20px', width: '100%',
+            maxWidth: '420px', boxShadow: '0 25px 50px rgba(0,0,0,0.2)'
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '20px 24px', borderBottom: '1px solid #f1f5f9'
+            }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '16px', fontWeight: 700 }}>
+                  Edit Owner Email
+                </h3>
+                <p style={{ margin: '4px 0 0', color: '#94a3b8', fontSize: '12px' }}>
+                  {editShop.name}
+                </p>
+              </div>
+              <button onClick={() => setShowEditModal(false)} style={{
+                background: '#f8fafc', border: 'none', borderRadius: '10px',
+                padding: '8px', cursor: 'pointer', color: '#94a3b8'
+              }}><MdClose size={20} /></button>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              <label style={{
+                display: 'block', fontSize: '12px', fontWeight: 600,
+                color: '#64748b', marginBottom: '8px'
+              }}>Owner Email</label>
+              <input
+                type="email"
+                value={editOwnerEmail}
+                onChange={e => setEditOwnerEmail(e.target.value)}
+                placeholder="owner@example.com"
+                style={{
+                  width: '100%', padding: '12px', borderRadius: '12px', fontSize: '14px',
+                  border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a',
+                  boxSizing: 'border-box', outline: 'none'
+                }}
+                onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                onBlur={e => e.target.style.borderColor = '#f1f5f9'}
+              />
+            </div>
+
+            <div style={{
+              display: 'flex', gap: '12px', padding: '16px 24px',
+              borderTop: '1px solid #f1f5f9'
+            }}>
+              <button onClick={handleUpdateOwnerEmail} disabled={submitting} style={{
+                flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+                color: 'white', fontWeight: 600, fontSize: '14px',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)'
+              }}>
+                {submitting ? 'Saving...' : 'Save Email'}
+              </button>
+              <button onClick={() => setShowEditModal(false)} style={{
+                padding: '12px 20px', borderRadius: '12px', border: 'none',
+                background: '#f1f5f9', color: '#64748b', fontWeight: 600, cursor: 'pointer'
+              }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Shop Modal */}
       {showModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)',
-          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '16px', zIndex: 50
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', padding: '16px', zIndex: 50
         }}>
           <div style={{
             background: 'white', borderRadius: '20px', width: '100%',
@@ -262,9 +358,10 @@ function AdminDashboard() {
                 { label: 'Owner Email', key: 'ownerEmail', col: 2 },
               ].map(({ label, key, col }) => (
                 <div key={key} style={{ gridColumn: col === 2 ? 'span 2' : 'span 1' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>
-                    {label}
-                  </label>
+                  <label style={{
+                    display: 'block', fontSize: '12px', fontWeight: 600,
+                    color: '#64748b', marginBottom: '6px'
+                  }}>{label}</label>
                   <input
                     type="text" value={form[key]}
                     onChange={e => setForm({ ...form, [key]: e.target.value })}
@@ -278,13 +375,11 @@ function AdminDashboard() {
               ))}
             </div>
 
-            <div style={{
-              display: 'flex', gap: '12px', padding: '16px 24px',
-              borderTop: '1px solid #f1f5f9'
-            }}>
+            <div style={{ display: 'flex', gap: '12px', padding: '16px 24px', borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleCreate} disabled={submitting} style={{
                 flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
-                color: 'white', fontWeight: 600, fontSize: '14px', cursor: submitting ? 'not-allowed' : 'pointer',
+                color: 'white', fontWeight: 600, fontSize: '14px',
+                cursor: submitting ? 'not-allowed' : 'pointer',
                 background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)'
               }}>
                 {submitting ? 'Creating...' : 'Create Shop'}
