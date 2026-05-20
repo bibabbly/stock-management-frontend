@@ -1,10 +1,110 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdClose, MdPointOfSale, MdPrint } from 'react-icons/md'
+import { MdAdd, MdClose, MdPointOfSale, MdPrint, MdSearch } from 'react-icons/md'
 import Receipt from '../components/Receipt'
 import Pagination from '../components/Pagination'
+
+// Searchable product dropdown component
+function ProductSearch({ products, value, onChange }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const selected = products.find(p => p.id === parseInt(value))
+
+  const filtered = products
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative flex-1">
+      <div
+        onClick={() => setOpen(!open)}
+        className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer flex items-center justify-between"
+        style={{ border: '2px solid #f1f5f9', background: 'white', color: selected ? '#0f172a' : '#94a3b8', minHeight: '44px' }}>
+        <span className="truncate">
+          {selected
+            ? `${selected.name} (×${selected.quantity}) — RWF ${selected.sellingPrice?.toLocaleString()}`
+            : 'Select product'}
+        </span>
+        <MdSearch size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg overflow-hidden"
+          style={{ border: '1px solid #e2e8f0', maxHeight: '260px' }}>
+          {/* Search input */}
+          <div className="p-2" style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <MdSearch size={14} style={{ color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search product..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                autoFocus
+                className="flex-1 text-xs focus:outline-none"
+                style={{ background: 'transparent', color: '#0f172a' }}
+              />
+              {search && (
+                <button onClick={e => { e.stopPropagation(); setSearch('') }}>
+                  <MdClose size={12} style={{ color: '#94a3b8' }} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Product list */}
+          <div style={{ overflowY: 'auto', maxHeight: '200px' }}>
+            {filtered.length === 0 ? (
+              <p className="text-xs text-center py-4" style={{ color: '#94a3b8' }}>No products found</p>
+            ) : (
+              filtered.map(p => (
+                <div
+                  key={p.id}
+                  onClick={() => { onChange(p.id); setOpen(false); setSearch('') }}
+                  className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
+                  style={{
+                    background: value === String(p.id) ? '#eff6ff' : 'white',
+                    borderBottom: '1px solid #f8fafc'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>{p.name}</p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>
+                      Stock: {p.quantity} · RWF {p.sellingPrice?.toLocaleString()}
+                    </p>
+                  </div>
+                  {p.quantity <= 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                      style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>
+                  )}
+                  {p.quantity > 0 && p.quantity <= 5 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                      style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Sales() {
   const { shopId, userId } = useAuth()
@@ -85,14 +185,12 @@ function Sales() {
   const formTotalDiscount = items.reduce((sum, item) => sum + getItemDiscount(item), 0)
   const formTotal = formOriginal - formTotalDiscount
 
-  // Calculate bought at (cost) for a sale
   const getBoughtAt = (sale) => {
     return sale.items?.reduce((sum, item) => {
       return sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0))
     }, 0) || 0
   }
 
-  // Calculate profit for a sale
   const getProfit = (sale) => {
     return (sale.totalAmount || 0) - getBoughtAt(sale)
   }
@@ -174,7 +272,6 @@ function Sales() {
                 const boughtAt = getBoughtAt(sale)
                 const profit = getProfit(sale)
                 const isProfit = profit >= 0
-
                 return (
                   <tr key={sale.id}
                     style={{ borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
@@ -213,11 +310,9 @@ function Sales() {
                           color: paymentColors[sale.paymentMethod]?.color || '#64748b'
                         }}>{sale.paymentMethod}</span>
                     </td>
-                    {/* Bought At */}
                     <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
                       RWF {boughtAt.toLocaleString()}
                     </td>
-                    {/* Sold For */}
                     <td className="px-4 py-3.5 font-bold text-sm" style={{ color: '#0f172a' }}>
                       RWF {sale.totalAmount?.toLocaleString()}
                       {sale.discountAmount > 0 && (
@@ -226,13 +321,11 @@ function Sales() {
                         </p>
                       )}
                     </td>
-                    {/* Discount */}
                     <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
                       {sale.discountAmount > 0
                         ? `- RWF ${sale.discountAmount?.toLocaleString()}`
                         : <span style={{ color: '#cbd5e1' }}>—</span>}
                     </td>
-                    {/* Profit */}
                     <td className="px-4 py-3.5">
                       <span className="px-2 py-1 rounded-lg text-xs font-bold"
                         style={{
@@ -277,7 +370,6 @@ function Sales() {
             const boughtAt = getBoughtAt(sale)
             const profit = getProfit(sale)
             const isProfit = profit >= 0
-
             return (
               <div key={sale.id} className="bg-white rounded-xl p-4"
                 style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -308,7 +400,6 @@ function Sales() {
                     </button>
                   </div>
                 </div>
-
                 <div className="space-y-1 mb-3">
                   {sale.items?.map(item => (
                     <div key={item.id} className="flex items-center justify-between">
@@ -326,15 +417,10 @@ function Sales() {
                     </div>
                   ))}
                 </div>
-
-                {/* Bottom stats */}
-                <div className="grid grid-cols-3 gap-2 pt-3"
-                  style={{ borderTop: '1px solid #f8fafc' }}>
+                <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Bought At</p>
-                    <p className="text-xs font-semibold" style={{ color: '#64748b' }}>
-                      RWF {boughtAt.toLocaleString()}
-                    </p>
+                    <p className="text-xs font-semibold" style={{ color: '#64748b' }}>RWF {boughtAt.toLocaleString()}</p>
                   </div>
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Discount</p>
@@ -349,7 +435,6 @@ function Sales() {
                     </p>
                   </div>
                 </div>
-
                 <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
                   Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span>
                 </p>
@@ -425,7 +510,7 @@ function Sales() {
                 </select>
               </div>
 
-              {/* Products with per-item discount */}
+              {/* Products with searchable dropdown + per-item discount */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Products</label>
                 <div className="space-y-3">
@@ -439,20 +524,13 @@ function Sales() {
                       <div key={index} className="rounded-xl p-3 space-y-2"
                         style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
 
+                        {/* Searchable product + qty */}
                         <div className="flex gap-2 items-center">
-                          <select value={item.productId}
-                            onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                            className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                            style={{ border: '2px solid #f1f5f9', background: 'white', color: '#0f172a' }}
-                            onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                            onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
-                            <option value="">Select product</option>
-                            {products.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} (×{p.quantity}) — RWF {p.sellingPrice?.toLocaleString()}
-                              </option>
-                            ))}
-                          </select>
+                          <ProductSearch
+                            products={products}
+                            value={item.productId}
+                            onChange={(productId) => updateItem(index, 'productId', String(productId))}
+                          />
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
                               className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
@@ -471,6 +549,7 @@ function Sales() {
                           )}
                         </div>
 
+                        {/* Discount toggle */}
                         <div className="flex gap-1.5">
                           {['NONE', 'PERCENTAGE', 'FIXED'].map(type => (
                             <button key={type}
