@@ -85,6 +85,18 @@ function Sales() {
   const formTotalDiscount = items.reduce((sum, item) => sum + getItemDiscount(item), 0)
   const formTotal = formOriginal - formTotalDiscount
 
+  // Calculate bought at (cost) for a sale
+  const getBoughtAt = (sale) => {
+    return sale.items?.reduce((sum, item) => {
+      return sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0))
+    }, 0) || 0
+  }
+
+  // Calculate profit for a sale
+  const getProfit = (sale) => {
+    return (sale.totalAmount || 0) - getBoughtAt(sale)
+  }
+
   const handleSubmit = async () => {
     if (submitting) return
     setSubmitting(true)
@@ -140,7 +152,7 @@ function Sales() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Date & Time', 'Items', 'Supplier', 'Payment', 'Original', 'Discount', 'Total', 'By', 'Action'].map(h => (
+              {['Date & Time', 'Items', 'Supplier', 'Payment', 'Bought At', 'Sold For', 'Discount', 'Profit', 'By', 'Action'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: '#94a3b8' }}>{h}</th>
               ))}
@@ -148,77 +160,101 @@ function Sales() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="9" className="text-center py-16">
+              <tr><td colSpan="10" className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading sales...</p>
               </td></tr>
             ) : sales.length === 0 ? (
-              <tr><td colSpan="9" className="text-center py-16">
+              <tr><td colSpan="10" className="text-center py-16">
                 <MdPointOfSale size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No sales yet</p>
               </td></tr>
             ) : (
-              sales.map((sale, i) => (
-                <tr key={sale.id}
-                  style={{ borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                  <td className="px-4 py-3.5">
-                    <p className="font-medium text-sm" style={{ color: '#0f172a' }}>{new Date(sale.date).toLocaleDateString()}</p>
-                    <p className="text-xs" style={{ color: '#94a3b8' }}>{new Date(sale.date).toLocaleTimeString()}</p>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <div className="flex flex-wrap gap-1">
-                      {sale.items?.map(item => (
-                        <div key={item.id} className="flex flex-col">
-                          <span className="px-2 py-0.5 rounded-full text-xs"
-                            style={{ background: '#f1f5f9', color: '#64748b' }}>
-                            {item.product?.name} ×{item.quantity}
-                          </span>
-                          {item.discountAmount > 0 && (
-                            <span className="text-xs px-2" style={{ color: '#ef4444' }}>
-                              -{item.discountType === 'PERCENTAGE'
-                                ? `${item.discountValue}%`
-                                : `RWF ${item.discountAmount?.toLocaleString()}`}
+              sales.map((sale, i) => {
+                const boughtAt = getBoughtAt(sale)
+                const profit = getProfit(sale)
+                const isProfit = profit >= 0
+
+                return (
+                  <tr key={sale.id}
+                    style={{ borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                    <td className="px-4 py-3.5">
+                      <p className="font-medium text-sm" style={{ color: '#0f172a' }}>{new Date(sale.date).toLocaleDateString()}</p>
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>{new Date(sale.date).toLocaleTimeString()}</p>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-wrap gap-1">
+                        {sale.items?.map(item => (
+                          <div key={item.id} className="flex flex-col">
+                            <span className="px-2 py-0.5 rounded-full text-xs"
+                              style={{ background: '#f1f5f9', color: '#64748b' }}>
+                              {item.product?.name} ×{item.quantity}
                             </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
-                    {sale.supplier?.name || <span style={{ color: '#cbd5e1' }}>CashNorm</span>}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                      style={{
-                        background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
-                        color: paymentColors[sale.paymentMethod]?.color || '#64748b'
-                      }}>{sale.paymentMethod}</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-sm" style={{ color: '#64748b' }}>
-                    RWF {sale.originalAmount?.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
-                    {sale.discountAmount > 0
-                      ? `- RWF ${sale.discountAmount?.toLocaleString()}`
-                      : <span style={{ color: '#cbd5e1' }}>—</span>}
-                  </td>
-                  <td className="px-4 py-3.5 font-bold" style={{ color: '#0f172a' }}>
-                    RWF {sale.totalAmount?.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
-                    {sale.user?.name || '—'}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <button onClick={() => setSelectedSale(sale)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                      style={{ background: '#eff6ff', color: '#3b82f6' }}>
-                      <MdPrint size={14} /> Print
-                    </button>
-                  </td>
-                </tr>
-              ))
+                            {item.discountAmount > 0 && (
+                              <span className="text-xs px-2" style={{ color: '#ef4444' }}>
+                                -{item.discountType === 'PERCENTAGE'
+                                  ? `${item.discountValue}%`
+                                  : `RWF ${item.discountAmount?.toLocaleString()}`}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
+                      {sale.supplier?.name || <span style={{ color: '#cbd5e1' }}>CashNorm</span>}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{
+                          background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                          color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                        }}>{sale.paymentMethod}</span>
+                    </td>
+                    {/* Bought At */}
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
+                      RWF {boughtAt.toLocaleString()}
+                    </td>
+                    {/* Sold For */}
+                    <td className="px-4 py-3.5 font-bold text-sm" style={{ color: '#0f172a' }}>
+                      RWF {sale.totalAmount?.toLocaleString()}
+                      {sale.discountAmount > 0 && (
+                        <p className="text-xs font-normal line-through" style={{ color: '#94a3b8' }}>
+                          RWF {sale.originalAmount?.toLocaleString()}
+                        </p>
+                      )}
+                    </td>
+                    {/* Discount */}
+                    <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
+                      {sale.discountAmount > 0
+                        ? `- RWF ${sale.discountAmount?.toLocaleString()}`
+                        : <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+                    {/* Profit */}
+                    <td className="px-4 py-3.5">
+                      <span className="px-2 py-1 rounded-lg text-xs font-bold"
+                        style={{
+                          background: isProfit ? '#f0fdf4' : '#fef2f2',
+                          color: isProfit ? '#16a34a' : '#ef4444'
+                        }}>
+                        {isProfit ? '+' : ''}RWF {profit.toLocaleString()}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
+                      {sale.user?.name || '—'}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <button onClick={() => setSelectedSale(sale)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                        style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                        <MdPrint size={14} /> Print
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -237,63 +273,89 @@ function Sales() {
             <p style={{ color: '#94a3b8' }}>No sales yet</p>
           </div>
         ) : (
-          sales.map(sale => (
-            <div key={sale.id} className="bg-white rounded-xl p-4"
-              style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
-                    RWF {sale.totalAmount?.toLocaleString()}
-                    {sale.discountAmount > 0 && (
-                      <span className="ml-2 text-xs font-normal line-through" style={{ color: '#94a3b8' }}>
-                        RWF {sale.originalAmount?.toLocaleString()}
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    {new Date(sale.date).toLocaleDateString()} · {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  {sale.user?.name && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>By: {sale.user.name}</p>}
-                  {sale.discountAmount > 0 && (
-                    <p className="text-xs mt-0.5" style={{ color: '#ef4444' }}>
-                      Discount: - RWF {sale.discountAmount?.toLocaleString()}
+          sales.map(sale => {
+            const boughtAt = getBoughtAt(sale)
+            const profit = getProfit(sale)
+            const isProfit = profit >= 0
+
+            return (
+              <div key={sale.id} className="bg-white rounded-xl p-4"
+                style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
+                      RWF {sale.totalAmount?.toLocaleString()}
+                      {sale.discountAmount > 0 && (
+                        <span className="ml-2 text-xs font-normal line-through" style={{ color: '#94a3b8' }}>
+                          RWF {sale.originalAmount?.toLocaleString()}
+                        </span>
+                      )}
                     </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                    style={{
-                      background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
-                      color: paymentColors[sale.paymentMethod]?.color || '#64748b'
-                    }}>{sale.paymentMethod}</span>
-                  <button onClick={() => setSelectedSale(sale)}
-                    className="p-2 rounded-lg" style={{ background: '#eff6ff', color: '#3b82f6' }}>
-                    <MdPrint size={16} />
-                  </button>
-                </div>
-              </div>
-              <div className="space-y-1">
-                {sale.items?.map(item => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded-full text-xs"
-                      style={{ background: '#f1f5f9', color: '#64748b' }}>
-                      {item.product?.name} ×{item.quantity}
-                    </span>
-                    {item.discountAmount > 0 && (
-                      <span className="text-xs" style={{ color: '#ef4444' }}>
-                        -{item.discountType === 'PERCENTAGE'
-                          ? `${item.discountValue}%`
-                          : `RWF ${item.discountAmount?.toLocaleString()}`}
-                      </span>
-                    )}
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>
+                      {new Date(sale.date).toLocaleDateString()} · {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    {sale.user?.name && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>By: {sale.user.name}</p>}
                   </div>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{
+                        background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                        color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                      }}>{sale.paymentMethod}</span>
+                    <button onClick={() => setSelectedSale(sale)}
+                      className="p-2 rounded-lg" style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                      <MdPrint size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1 mb-3">
+                  {sale.items?.map(item => (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded-full text-xs"
+                        style={{ background: '#f1f5f9', color: '#64748b' }}>
+                        {item.product?.name} ×{item.quantity}
+                      </span>
+                      {item.discountAmount > 0 && (
+                        <span className="text-xs" style={{ color: '#ef4444' }}>
+                          -{item.discountType === 'PERCENTAGE'
+                            ? `${item.discountValue}%`
+                            : `RWF ${item.discountAmount?.toLocaleString()}`}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Bottom stats */}
+                <div className="grid grid-cols-3 gap-2 pt-3"
+                  style={{ borderTop: '1px solid #f8fafc' }}>
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Bought At</p>
+                    <p className="text-xs font-semibold" style={{ color: '#64748b' }}>
+                      RWF {boughtAt.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Discount</p>
+                    <p className="text-xs font-semibold" style={{ color: '#ef4444' }}>
+                      {sale.discountAmount > 0 ? `- RWF ${sale.discountAmount?.toLocaleString()}` : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Profit</p>
+                    <p className="text-xs font-bold" style={{ color: isProfit ? '#16a34a' : '#ef4444' }}>
+                      {isProfit ? '+' : ''}RWF {profit.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
+                  Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span>
+                </p>
               </div>
-              <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
-                Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span>
-              </p>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
@@ -377,7 +439,6 @@ function Sales() {
                       <div key={index} className="rounded-xl p-3 space-y-2"
                         style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
 
-                        {/* Product select + qty */}
                         <div className="flex gap-2 items-center">
                           <select value={item.productId}
                             onChange={(e) => updateItem(index, 'productId', e.target.value)}
@@ -410,7 +471,6 @@ function Sales() {
                           )}
                         </div>
 
-                        {/* Discount toggle per item */}
                         <div className="flex gap-1.5">
                           {['NONE', 'PERCENTAGE', 'FIXED'].map(type => (
                             <button key={type}
@@ -426,7 +486,6 @@ function Sales() {
                           ))}
                         </div>
 
-                        {/* Discount input */}
                         {item.discountType !== 'NONE' && (
                           <input type="number" min="0"
                             value={item.discountValue}
@@ -438,7 +497,6 @@ function Sales() {
                             onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
                         )}
 
-                        {/* Item subtotal */}
                         {itemSubtotal > 0 && (
                           <div className="flex items-center justify-between text-xs pt-1">
                             <span style={{ color: '#94a3b8' }}>
