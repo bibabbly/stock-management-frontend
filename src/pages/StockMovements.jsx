@@ -1,9 +1,105 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/api'
 import { useAuth } from '../context/AuthContext'
 import { MdAdd, MdClose, MdSwapVert, MdArrowUpward, MdArrowDownward, MdSearch } from 'react-icons/md'
 import Pagination from '../components/Pagination'
+
+// Searchable product dropdown — same as Sales
+function ProductSearch({ products, value, onChange }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  const selected = products.find(p => p.id === parseInt(value))
+
+  const filtered = products
+    .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative w-full">
+      <div
+        onClick={() => setOpen(!open)}
+        className="w-full rounded-xl px-3 py-3 text-sm cursor-pointer flex items-center justify-between"
+        style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: selected ? '#0f172a' : '#94a3b8', minHeight: '48px' }}>
+        <span className="truncate">
+          {selected ? `${selected.name} (Stock: ${selected.quantity})` : 'Select product'}
+        </span>
+        <MdSearch size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg overflow-hidden"
+          style={{ border: '1px solid #e2e8f0', maxHeight: '260px' }}>
+          {/* Search input */}
+          <div className="p-2" style={{ borderBottom: '1px solid #f1f5f9' }}>
+            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <MdSearch size={14} style={{ color: '#94a3b8' }} />
+              <input
+                type="text"
+                placeholder="Search product..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                autoFocus
+                className="flex-1 text-xs focus:outline-none"
+                style={{ background: 'transparent', color: '#0f172a' }}
+              />
+              {search && (
+                <button onClick={e => { e.stopPropagation(); setSearch('') }}>
+                  <MdClose size={12} style={{ color: '#94a3b8' }} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Product list */}
+          <div style={{ overflowY: 'auto', maxHeight: '200px' }}>
+            {filtered.length === 0 ? (
+              <p className="text-xs text-center py-4" style={{ color: '#94a3b8' }}>No products found</p>
+            ) : (
+              filtered.map(p => (
+                <div
+                  key={p.id}
+                  onClick={() => { onChange(String(p.id)); setOpen(false); setSearch('') }}
+                  className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
+                  style={{
+                    background: value === String(p.id) ? '#eff6ff' : 'white',
+                    borderBottom: '1px solid #f8fafc'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                  onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>{p.name}</p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>Stock: {p.quantity}</p>
+                  </div>
+                  {p.quantity <= 0 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                      style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>
+                  )}
+                  {p.quantity > 0 && p.quantity <= 5 && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                      style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StockMovements() {
   const { shopId, userId } = useAuth()
@@ -100,8 +196,7 @@ function StockMovements() {
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
-        >
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
           <MdAdd size={18} /> Restock
         </button>
       </div>
@@ -336,20 +431,18 @@ function StockMovements() {
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
               )}
+
+              {/* Searchable Product */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
-                <select value={form.productId}
-                  onChange={e => setForm({ ...form, productId: e.target.value })}
-                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-                  style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
-                  <option value="">Select product</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} (Stock: {p.quantity})</option>
-                  ))}
-                </select>
+                <ProductSearch
+                  products={products}
+                  value={form.productId}
+                  onChange={(val) => setForm({ ...form, productId: val })}
+                />
               </div>
+
+              {/* Supplier */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier</label>
                 <select value={form.supplierId}
@@ -364,6 +457,8 @@ function StockMovements() {
                   ))}
                 </select>
               </div>
+
+              {/* Quantity */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -383,6 +478,8 @@ function StockMovements() {
                     style={{ background: '#3b82f6', color: 'white' }}>+</button>
                 </div>
               </div>
+
+              {/* Note */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
                 <input type="text" value={form.note}
