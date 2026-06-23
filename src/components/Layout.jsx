@@ -5,7 +5,7 @@ import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
   MdSwapVert, MdMenu, MdLogout, MdSettings,
   MdAssessment, MdShoppingCart, MdGroup, MdAdminPanelSettings,
-  MdLock, MdClose
+  MdLock, MdClose, MdAccountBalance
 } from 'react-icons/md'
 
 function Layout({ children }) {
@@ -67,6 +67,7 @@ function Layout({ children }) {
     { path: '/sales', icon: <MdPointOfSale size={20} />, label: 'Sales', page: 'SALES' },
     { path: '/suppliers', icon: <MdPeople size={20} />, label: 'Suppliers', page: 'SUPPLIERS' },
     { path: '/stock-movements', icon: <MdSwapVert size={20} />, label: 'Stock Movements', page: 'STOCK_MOVEMENTS' },
+    { path: '/debts', icon: <MdAccountBalance size={20} />, label: 'Debts', page: 'DEBTS' }, // ← add this
     { path: '/settings', icon: <MdSettings size={20} />, label: 'Settings', page: 'SETTINGS' },
     { path: '/sales-report', icon: <MdAssessment size={20} />, label: 'Sales Report', page: 'SALES_REPORT' },
     { path: '/purchase-report', icon: <MdShoppingCart size={20} />, label: 'Purchase Report', page: 'PURCHASE_REPORT' },
