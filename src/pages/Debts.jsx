@@ -2,8 +2,154 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdClose, MdEdit, MdDelete, MdPayment, MdPeople, MdSearch } from 'react-icons/md'
+import { MdAdd, MdClose, MdEdit, MdDelete, MdPayment, MdPeople } from 'react-icons/md'
 import Pagination from '../components/Pagination'
+
+// ── OUTSIDE Debts — fixes focus loss on every keystroke ──
+const DebtForm = ({ form, setForm, error, submitting, selectedDebt, onSubmit, onCancel, title, subtitle }) => (
+  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+    style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+    <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl flex flex-col"
+      style={{ borderRadius: '20px 20px 0 0', maxHeight: '92vh' }}>
+
+      <div className="flex justify-center pt-3 pb-1 sm:hidden">
+        <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
+      </div>
+
+      <div className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: '1px solid #f1f5f9' }}>
+        <div>
+          <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>{title}</h2>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>{subtitle}</p>
+        </div>
+        <button onClick={onCancel} className="p-2 rounded-xl"
+          style={{ color: '#94a3b8', background: '#f8fafc' }}>
+          <MdClose size={20} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
+        )}
+
+        {/* Type toggle */}
+        <div>
+          <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Debt Type</label>
+          <div className="flex gap-2">
+            {[
+              { value: 'CUSTOMER', label: '👤 Customer owes me' },
+              { value: 'SUPPLIER', label: '🏭 I owe supplier' }
+            ].map(t => (
+              <button key={t.value} onClick={() => setForm({ ...form, debtType: t.value })}
+                className="flex-1 py-2.5 rounded-xl text-xs font-semibold"
+                style={{
+                  background: form.debtType === t.value ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : '#f8fafc',
+                  color: form.debtType === t.value ? 'white' : '#64748b',
+                  border: form.debtType === t.value ? 'none' : '2px solid #f1f5f9'
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Name */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+            {form.debtType === 'CUSTOMER' ? 'Customer Name' : 'Supplier Name'}
+          </label>
+          <input type="text" value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })}
+            placeholder={form.debtType === 'CUSTOMER' ? 'e.g. John Doe' : 'e.g. Kigali Supplies'}
+            className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+            onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+        </div>
+
+        {/* Phone */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Phone</label>
+          <input type="text" value={form.phone}
+            onChange={e => setForm({ ...form, phone: e.target.value })}
+            placeholder="e.g. 0788000000"
+            className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+            onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+        </div>
+
+        {/* Total Amount */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Total Amount (RWF)</label>
+          <input type="number" value={form.totalAmount}
+            onChange={e => setForm({ ...form, totalAmount: e.target.value })}
+            placeholder="e.g. 50000"
+            className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+            onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+        </div>
+
+        {/* Paid Amount — only on Add */}
+        {!selectedDebt && (
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+              Already Paid (RWF) — optional
+            </label>
+            <input type="number" value={form.paidAmount}
+              onChange={e => setForm({ ...form, paidAmount: e.target.value })}
+              placeholder="e.g. 10000 or leave 0"
+              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+              onFocus={e => e.target.style.borderColor = '#3b82f6'}
+              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+          </div>
+        )}
+
+        {/* Due Date */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Due Date</label>
+          <input type="date" value={form.dueDate}
+            onChange={e => setForm({ ...form, dueDate: e.target.value })}
+            className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+            onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+        </div>
+
+        {/* Note */}
+        <div>
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note (optional)</label>
+          <input type="text" value={form.note}
+            onChange={e => setForm({ ...form, note: e.target.value })}
+            placeholder="e.g. For electronics purchased"
+            className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+            onFocus={e => e.target.style.borderColor = '#3b82f6'}
+            onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+        </div>
+      </div>
+
+      <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+        <button onClick={onSubmit} disabled={submitting}
+          className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
+          style={{
+            background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+            cursor: submitting ? 'not-allowed' : 'pointer'
+          }}>
+          {submitting ? 'Saving...' : 'Save'}
+        </button>
+        <button onClick={onCancel}
+          className="px-5 py-3 rounded-xl font-semibold text-sm"
+          style={{ background: '#f1f5f9', color: '#64748b' }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)
 
 function Debts() {
   const { shopId } = useAuth()
@@ -17,7 +163,6 @@ function Debts() {
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
 
-  // Modals
   const [showAddModal, setShowAddModal] = useState(false)
   const [showPayModal, setShowPayModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -72,8 +217,7 @@ function Debts() {
     setError('')
     try {
       await api.post('/debts', {
-        shopId,
-        ...form,
+        shopId, ...form,
         totalAmount: parseFloat(form.totalAmount),
         paidAmount: parseFloat(form.paidAmount || 0),
       })
@@ -94,8 +238,7 @@ function Debts() {
     setError('')
     try {
       await api.put(`/debts/${selectedDebt.id}`, {
-        shopId,
-        ...form,
+        shopId, ...form,
         totalAmount: parseFloat(form.totalAmount),
       })
       setShowEditModal(false)
@@ -175,9 +318,9 @@ function Debts() {
     const today = new Date()
     const due = new Date(dueDate)
     const diff = Math.ceil((due - today) / (1000 * 60 * 60 * 24))
-    if (diff < 0) return { color: '#ef4444', fontWeight: 700 } // overdue
-    if (diff <= 1) return { color: '#f97316', fontWeight: 700 } // due tomorrow
-    if (diff <= 3) return { color: '#d97706', fontWeight: 600 } // due soon
+    if (diff < 0) return { color: '#ef4444', fontWeight: 700 }
+    if (diff <= 1) return { color: '#f97316', fontWeight: 700 }
+    if (diff <= 3) return { color: '#d97706', fontWeight: 600 }
     return { color: '#64748b' }
   }
 
@@ -191,151 +334,6 @@ function Debts() {
     if (diff === 1) return `Tomorrow!`
     return new Date(dueDate).toLocaleDateString()
   }
-
-  const DebtForm = ({ onSubmit, onCancel, title, subtitle }) => (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl flex flex-col"
-        style={{ borderRadius: '20px 20px 0 0', maxHeight: '92vh' }}>
-
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
-        </div>
-
-        <div className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid #f1f5f9' }}>
-          <div>
-            <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>{title}</h2>
-            <p className="text-xs" style={{ color: '#94a3b8' }}>{subtitle}</p>
-          </div>
-          <button onClick={onCancel} className="p-2 rounded-xl"
-            style={{ color: '#94a3b8', background: '#f8fafc' }}>
-            <MdClose size={20} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
-          )}
-
-          {/* Type toggle */}
-          <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Debt Type</label>
-            <div className="flex gap-2">
-              {[
-                { value: 'CUSTOMER', label: '👤 Customer owes me' },
-                { value: 'SUPPLIER', label: '🏭 I owe supplier' }
-              ].map(t => (
-                <button key={t.value} onClick={() => setForm({ ...form, debtType: t.value })}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold"
-                  style={{
-                    background: form.debtType === t.value ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : '#f8fafc',
-                    color: form.debtType === t.value ? 'white' : '#64748b',
-                    border: form.debtType === t.value ? 'none' : '2px solid #f1f5f9'
-                  }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
-              {form.debtType === 'CUSTOMER' ? 'Customer Name' : 'Supplier Name'}
-            </label>
-            <input type="text" value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              placeholder={form.debtType === 'CUSTOMER' ? 'e.g. John Doe' : 'e.g. Kigali Supplies'}
-              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-              onFocus={e => e.target.style.borderColor = '#3b82f6'}
-              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-          </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Phone</label>
-            <input type="text" value={form.phone}
-              onChange={e => setForm({ ...form, phone: e.target.value })}
-              placeholder="e.g. 0788000000"
-              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-              onFocus={e => e.target.style.borderColor = '#3b82f6'}
-              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-          </div>
-
-          {/* Total Amount */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Total Amount (RWF)</label>
-            <input type="number" value={form.totalAmount}
-              onChange={e => setForm({ ...form, totalAmount: e.target.value })}
-              placeholder="e.g. 50000"
-              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-              onFocus={e => e.target.style.borderColor = '#3b82f6'}
-              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-          </div>
-
-          {/* Paid Amount — only on Add */}
-          {!selectedDebt && (
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
-                Already Paid (RWF) — optional
-              </label>
-              <input type="number" value={form.paidAmount}
-                onChange={e => setForm({ ...form, paidAmount: e.target.value })}
-                placeholder="e.g. 10000 or leave 0"
-                className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-                style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-                onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-            </div>
-          )}
-
-          {/* Due Date */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Due Date</label>
-            <input type="date" value={form.dueDate}
-              onChange={e => setForm({ ...form, dueDate: e.target.value })}
-              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-              onFocus={e => e.target.style.borderColor = '#3b82f6'}
-              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-          </div>
-
-          {/* Note */}
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note (optional)</label>
-            <input type="text" value={form.note}
-              onChange={e => setForm({ ...form, note: e.target.value })}
-              placeholder="e.g. For electronics purchased"
-              className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
-              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-              onFocus={e => e.target.style.borderColor = '#3b82f6'}
-              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-          </div>
-        </div>
-
-        <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
-          <button onClick={onSubmit} disabled={submitting}
-            className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
-            style={{
-              background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-              cursor: submitting ? 'not-allowed' : 'pointer'
-            }}>
-            {submitting ? 'Saving...' : 'Save'}
-          </button>
-          <button onClick={onCancel}
-            className="px-5 py-3 rounded-xl font-semibold text-sm"
-            style={{ background: '#f1f5f9', color: '#64748b' }}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 
   return (
     <Layout>
@@ -386,7 +384,6 @@ function Debts() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 mb-4">
-        {/* Type filter */}
         {['ALL', 'CUSTOMER', 'SUPPLIER'].map(t => (
           <button key={t} onClick={() => handleTypeFilter(t)}
             className="px-3 py-2 rounded-xl text-xs font-semibold"
@@ -402,7 +399,6 @@ function Debts() {
 
         <div style={{ width: '1px', background: '#f1f5f9', margin: '0 4px' }} />
 
-        {/* Status filter */}
         {['ALL', 'PENDING', 'PARTIAL', 'PAID'].map(s => (
           <button key={s} onClick={() => handleStatusFilter(s)}
             className="px-3 py-2 rounded-xl text-xs font-semibold"
@@ -486,7 +482,7 @@ function Debts() {
                       <div className="flex items-center gap-1.5">
                         {debt.status !== 'PAID' && (
                           <button onClick={() => openPay(debt)}
-                            className="p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1"
+                            className="p-1.5 rounded-lg"
                             style={{ background: '#f0fdf4', color: '#16a34a' }}
                             title="Record Payment">
                             <MdPayment size={14} />
@@ -494,14 +490,12 @@ function Debts() {
                         )}
                         <button onClick={() => openEdit(debt)}
                           className="p-1.5 rounded-lg"
-                          style={{ background: '#eff6ff', color: '#3b82f6' }}
-                          title="Edit">
+                          style={{ background: '#eff6ff', color: '#3b82f6' }}>
                           <MdEdit size={14} />
                         </button>
                         <button onClick={() => handleDelete(debt.id)}
                           className="p-1.5 rounded-lg"
-                          style={{ background: '#fef2f2', color: '#ef4444' }}
-                          title="Delete">
+                          style={{ background: '#fef2f2', color: '#ef4444' }}>
                           <MdDelete size={14} />
                         </button>
                       </div>
@@ -555,7 +549,6 @@ function Debts() {
                   </div>
                 </div>
 
-                {/* Amount breakdown */}
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Total</p>
@@ -620,6 +613,11 @@ function Debts() {
         <DebtForm
           title="Add Debt"
           subtitle="Record a new debt"
+          form={form}
+          setForm={setForm}
+          error={error}
+          submitting={submitting}
+          selectedDebt={selectedDebt}
           onSubmit={handleAdd}
           onCancel={() => { setShowAddModal(false); resetForm() }}
         />
@@ -630,6 +628,11 @@ function Debts() {
         <DebtForm
           title="Edit Debt"
           subtitle="Update debt details"
+          form={form}
+          setForm={setForm}
+          error={error}
+          submitting={submitting}
+          selectedDebt={selectedDebt}
           onSubmit={handleEdit}
           onCancel={() => { setShowEditModal(false); resetForm() }}
         />
@@ -662,8 +665,6 @@ function Debts() {
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
               )}
-
-              {/* Remaining balance info */}
               <div className="rounded-xl p-3 flex items-center justify-between"
                 style={{ background: '#fef2f2' }}>
                 <span className="text-xs font-semibold" style={{ color: '#64748b' }}>Remaining Balance</span>
@@ -685,7 +686,6 @@ function Debts() {
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
               </div>
 
-              {/* Quick fill buttons */}
               <div className="flex gap-2">
                 <button onClick={() => setPayAmount(String(selectedDebt.totalAmount - selectedDebt.paidAmount))}
                   className="flex-1 py-2 rounded-lg text-xs font-semibold"
