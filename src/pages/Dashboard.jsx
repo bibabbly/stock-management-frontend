@@ -9,15 +9,15 @@ import {
 
 function StatCard({ icon, label, value, gradient }) {
   return (
-    <div className="bg-white rounded-xl p-4 flex items-center gap-3"
+    <div className="bg-white rounded-xl p-3 flex items-center gap-3"
       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: gradient }}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium mb-0.5 leading-tight" style={{ color: '#94a3b8' }}>{label}</p>
-        <p className="text-base font-bold truncate" style={{ color: '#0f172a' }}>{value}</p>
+        <p className="text-sm font-bold leading-tight break-words" style={{ color: '#0f172a', wordBreak: 'break-word' }}>{value}</p>
       </div>
     </div>
   )
@@ -25,10 +25,10 @@ function StatCard({ icon, label, value, gradient }) {
 
 function BigCard({ label, value, valueColor, sub }) {
   return (
-    <div className="bg-white rounded-xl p-5"
+    <div className="bg-white rounded-xl p-4"
       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
-      <p className="text-sm font-medium mb-2" style={{ color: '#64748b' }}>{label}</p>
-      <p className="text-2xl font-bold mb-1" style={{ color: valueColor }}>{value}</p>
+      <p className="text-xs font-medium mb-2" style={{ color: '#64748b' }}>{label}</p>
+      <p className="text-base font-bold mb-1 break-words leading-tight" style={{ color: valueColor, wordBreak: 'break-word' }}>{value}</p>
       {sub && <p className="text-xs" style={{ color: '#94a3b8' }}>{sub}</p>}
     </div>
   )
@@ -67,9 +67,9 @@ function Dashboard() {
         </p>
       </div>
 
-      {/* Today Stats — 2 cols on mobile, 3 on desktop */}
+      {/* Today Stats */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Today</p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <StatCard
           icon={<MdAttachMoney size={20} className="text-white" />}
           label="Today's Revenue"
@@ -92,7 +92,7 @@ function Dashboard() {
 
       {/* Overview Stats */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Overview</p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <StatCard
           icon={<MdInventory size={20} className="text-white" />}
           label="Total Products"
@@ -113,7 +113,7 @@ function Dashboard() {
         />
       </div>
 
-      {/* This Month — 2 cols always */}
+      {/* This Month */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>This Month</p>
       <div className="grid grid-cols-2 gap-3 mb-5">
         <BigCard
@@ -150,10 +150,9 @@ function Dashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Product</th>
-                  <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Category</th>
-                  <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Qty</th>
-                  <th className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>Min Stock</th>
+                  {['Product', 'Category', 'Qty', 'Min Stock'].map(h => (
+                    <th key={h} className="text-left pb-2 text-xs font-semibold" style={{ color: '#94a3b8' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -179,11 +178,11 @@ function Dashboard() {
             {data.lowStockProducts.map(product => (
               <div key={product.id} className="flex items-center justify-between p-3 rounded-xl"
                 style={{ background: '#fef2f2' }}>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>{product.name}</p>
+                <div className="flex-1 min-w-0 mr-2">
+                  <p className="text-sm font-semibold truncate" style={{ color: '#0f172a' }}>{product.name}</p>
                   <p className="text-xs" style={{ color: '#94a3b8' }}>{product.category}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex-shrink-0">
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold"
                     style={{ background: 'white', color: '#ef4444' }}>
                     Qty: {product.quantity}
