@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
 import {
   MdAttachMoney, MdPointOfSale, MdInventory,
-  MdPeople, MdWarning, MdTrendingUp
+  MdWarning, MdTrendingUp, MdStorefront
 } from 'react-icons/md'
 
 function StatCard({ icon, label, value, gradient }) {
@@ -17,7 +17,7 @@ function StatCard({ icon, label, value, gradient }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium mb-0.5 leading-tight" style={{ color: '#94a3b8' }}>{label}</p>
-        <p className="text-sm font-bold leading-tight break-words" style={{ color: '#0f172a', wordBreak: 'break-word' }}>{value}</p>
+        <p className="text-sm font-bold leading-tight" style={{ color: '#0f172a', wordBreak: 'break-word' }}>{value}</p>
       </div>
     </div>
   )
@@ -28,7 +28,7 @@ function BigCard({ label, value, valueColor, sub }) {
     <div className="bg-white rounded-xl p-4"
       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
       <p className="text-xs font-medium mb-2" style={{ color: '#64748b' }}>{label}</p>
-      <p className="text-base font-bold mb-1 break-words leading-tight" style={{ color: valueColor, wordBreak: 'break-word' }}>{value}</p>
+      <p className="text-base font-bold mb-1 leading-tight" style={{ color: valueColor, wordBreak: 'break-word' }}>{value}</p>
       {sub && <p className="text-xs" style={{ color: '#94a3b8' }}>{sub}</p>}
     </div>
   )
@@ -67,7 +67,7 @@ function Dashboard() {
         </p>
       </div>
 
-      {/* Today Stats */}
+      {/* TODAY — full width cards on mobile */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Today</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <StatCard
@@ -90,7 +90,7 @@ function Dashboard() {
         />
       </div>
 
-      {/* Overview Stats */}
+      {/* OVERVIEW — products + stock values */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>Overview</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         <StatCard
@@ -100,20 +100,20 @@ function Dashboard() {
           gradient="linear-gradient(135deg, #f59e0b, #fbbf24)"
         />
         <StatCard
-          icon={<MdPeople size={20} className="text-white" />}
-          label="Total Suppliers"
-          value={data?.totalSuppliers || 0}
-          gradient="linear-gradient(135deg, #ec4899, #f472b6)"
+          icon={<MdStorefront size={20} className="text-white" />}
+          label="Stock Value (Cost)"
+          value={`RWF ${data?.stockValueAtCost?.toLocaleString() || 0}`}
+          gradient="linear-gradient(135deg, #ef4444, #f87171)"
         />
         <StatCard
           icon={<MdTrendingUp size={20} className="text-white" />}
-          label="Month's Profit"
-          value={`RWF ${data?.monthProfit?.toLocaleString() || 0}`}
-          gradient="linear-gradient(135deg, #06b6d4, #67e8f9)"
+          label="Stock Value (Sale)"
+          value={`RWF ${data?.stockValueAtSale?.toLocaleString() || 0}`}
+          gradient="linear-gradient(135deg, #10b981, #34d399)"
         />
       </div>
 
-      {/* This Month */}
+      {/* THIS MONTH */}
       <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#94a3b8' }}>This Month</p>
       <div className="grid grid-cols-2 gap-3 mb-5">
         <BigCard
@@ -145,7 +145,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Table on desktop */}
+          {/* Desktop table */}
           <div className="hidden md:block">
             <table className="w-full text-sm">
               <thead>
@@ -173,7 +173,7 @@ function Dashboard() {
             </table>
           </div>
 
-          {/* Cards on mobile */}
+          {/* Mobile cards */}
           <div className="md:hidden space-y-2">
             {data.lowStockProducts.map(product => (
               <div key={product.id} className="flex items-center justify-between p-3 rounded-xl"
