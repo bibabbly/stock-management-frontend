@@ -532,14 +532,28 @@ function Sales() {
                             onChange={(productId) => updateItem(index, 'productId', String(productId))}
                           />
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
-                              style={{ background: '#e2e8f0', color: '#64748b' }}>−</button>
-                            <span className="w-7 text-center text-sm font-bold" style={{ color: '#0f172a' }}>{item.quantity}</span>
-                            <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
-                              style={{ background: '#3b82f6', color: 'white' }}>+</button>
-                          </div>
+  <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
+    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+    style={{ background: '#e2e8f0', color: '#64748b' }}>−</button>
+  <input
+    type="number"
+    min="1"
+    value={item.quantity}
+    onChange={e => {
+      const val = parseInt(e.target.value)
+      if (!isNaN(val) && val >= 1) updateItem(index, 'quantity', val)
+    }}
+    onFocus={e => e.target.select()}
+    className="text-center text-sm font-bold focus:outline-none rounded-lg"
+    style={{
+      width: '48px', height: '32px',
+      border: '2px solid #e2e8f0',
+      color: '#0f172a', background: '#f8fafc'
+    }} />
+  <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
+    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+    style={{ background: '#3b82f6', color: 'white' }}>+</button>
+</div>
                           {items.length > 1 && (
                             <button onClick={() => removeItem(index)}
                               className="p-1.5 rounded-lg flex-shrink-0"
