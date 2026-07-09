@@ -170,9 +170,9 @@ function StockMovements() {
       await api.post('/stock-movements/restock', {
         shopId, userId,
         productId: parseInt(form.productId),
-        supplierId: parseInt(form.supplierId),
+        supplierId: form.supplierId ? parseInt(form.supplierId) : null,
         quantity: parseInt(form.quantity),
-        note: form.note
+        note: form.note || 'Restock'
       })
       setShowModal(false)
       setForm({ productId: '', supplierId: '', quantity: 1, note: '' })
@@ -444,14 +444,14 @@ function StockMovements() {
 
               {/* Supplier */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier</label>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span></label>
                 <select value={form.supplierId}
                   onChange={e => setForm({ ...form, supplierId: e.target.value })}
                   className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
-                  <option value="">Select supplier</option>
+                  <option value="">-- No supplier (Direct Restock) --</option>
                   {suppliers.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
