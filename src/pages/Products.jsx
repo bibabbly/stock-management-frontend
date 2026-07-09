@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdEdit, MdDelete, MdClose, MdSearch, MdInventory, MdBlock, MdCheckCircle } from 'react-icons/md'
+import { MdAdd, MdEdit, MdClose, MdSearch, MdInventory, MdBlock, MdCheckCircle } from 'react-icons/md'
 import Pagination from '../components/Pagination'
 
 function Products() {
@@ -18,6 +18,8 @@ function Products() {
   const [submitting, setSubmitting] = useState(false)
   const { shopId } = useAuth()
   const [editProduct, setEditProduct] = useState(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null)
   const [form, setForm] = useState({
     name: '', category: '', unit: '',
     buyingPrice: '', sellingPrice: '',
@@ -45,7 +47,6 @@ function Products() {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Filter products by status on frontend
   const filteredProducts = products.filter(p => {
     if (statusFilter === 'ACTIVE') return p.active !== false
     if (statusFilter === 'INACTIVE') return p.active === false
@@ -88,40 +89,38 @@ function Products() {
     setShowModal(true)
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Deactivate this product? It will no longer appear in sales or restock.')) {
-      try {
-        await api.put(`/products/${id}/deactivate`)
-        fetchProducts(page, search, pageSize)
-      } catch (err) {
-        alert(err.response?.data?.message || 'Failed to deactivate product')
-      }
-    }
+  const openConfirm = (type, product) => {
+    setConfirmAction({ type, product })
+    setShowConfirmModal(true)
   }
 
-  const handleDeactivate = async (product) => {
+  const handleDeactivate = (product) => {
     if (product.quantity > 0) {
-      alert(`Cannot deactivate. Current stock is ${product.quantity}. Please do a manual stock out first.`)
+      setConfirmAction({ type: 'error', product })
+      setShowConfirmModal(true)
       return
     }
-    if (window.confirm(`Deactivate "${product.name}"? It won't appear in sales or restock.`)) {
-      try {
-        await api.put(`/products/${product.id}/deactivate`)
-        fetchProducts(page, search, pageSize)
-      } catch (err) {
-        alert(err.response?.data?.message || 'Failed to deactivate')
-      }
-    }
+    openConfirm('deactivate', product)
   }
 
-  const handleReactivate = async (product) => {
-    if (window.confirm(`Reactivate "${product.name}"?`)) {
-      try {
+  const handleReactivate = (product) => {
+    openConfirm('reactivate', product)
+  }
+
+  const handleConfirm = async () => {
+    const { type, product } = confirmAction
+    try {
+      if (type === 'deactivate') {
+        await api.put(`/products/${product.id}/deactivate`)
+      } else if (type === 'reactivate') {
         await api.put(`/products/${product.id}/reactivate`)
-        fetchProducts(page, search, pageSize)
-      } catch (err) {
-        alert(err.response?.data?.message || 'Failed to reactivate')
       }
+      setShowConfirmModal(false)
+      setConfirmAction(null)
+      fetchProducts(page, search, pageSize)
+    } catch (err) {
+      setShowConfirmModal(false)
+      setConfirmAction(null)
     }
   }
 
@@ -395,7 +394,7 @@ function Products() {
         onPageSizeChange={(s) => fetchProducts(0, search, s)}
       />
 
-      {/* Modal */}
+      {/* ADD/EDIT MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
@@ -445,6 +444,99 @@ function Products() {
                 style={{ background: '#f1f5f9', color: '#64748b' }}>
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM DEACTIVATE/REACTIVATE MODAL */}
+      {showConfirmModal && confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl shadow-2xl"
+            style={{ borderRadius: '20px 20px 0 0' }}>
+
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
+            </div>
+
+            <div className="px-6 py-6 text-center">
+              {/* Icon */}
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{
+                  background: confirmAction.type === 'error' ? '#fef3c7' :
+                              confirmAction.type === 'deactivate' ? '#fef2f2' : '#f0fdf4'
+                }}>
+                <span style={{ fontSize: '32px' }}>
+                  {confirmAction.type === 'error' ? '⚠️' :
+                   confirmAction.type === 'deactivate' ? '🚫' : '✅'}
+                </span>
+              </div>
+
+              {/* Title */}
+              <h2 className="text-lg font-bold mb-2" style={{ color: '#0f172a' }}>
+                {confirmAction.type === 'error' ? 'Cannot Deactivate' :
+                 confirmAction.type === 'deactivate' ? 'Deactivate Product' : 'Reactivate Product'}
+              </h2>
+
+              {/* Product name badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl mb-3"
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold"
+                  style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                  {confirmAction.product.name?.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+                  {confirmAction.product.name}
+                </span>
+              </div>
+
+              {/* Message */}
+              <p className="text-sm mb-1" style={{ color: '#64748b' }}>
+                {confirmAction.type === 'error' ?
+                  `This product still has ${confirmAction.product.quantity} units in stock.` :
+                 confirmAction.type === 'deactivate' ?
+                  'This product will be hidden from sales and restock modals.' :
+                  'This product will be visible again in sales and restock modals.'}
+              </p>
+              {confirmAction.type === 'error' && (
+                <p className="text-sm font-semibold mt-1" style={{ color: '#d97706' }}>
+                  Please do a manual stock out first.
+                </p>
+              )}
+              {confirmAction.type === 'deactivate' && (
+                <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+                  You can reactivate it anytime from the Products page.
+                </p>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+              {confirmAction.type === 'error' ? (
+                <button onClick={() => { setShowConfirmModal(false); setConfirmAction(null) }}
+                  className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }}>
+                  Got it
+                </button>
+              ) : (
+                <>
+                  <button onClick={handleConfirm}
+                    className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
+                    style={{
+                      background: confirmAction.type === 'deactivate'
+                        ? 'linear-gradient(135deg, #ef4444, #f87171)'
+                        : 'linear-gradient(135deg, #16a34a, #4ade80)'
+                    }}>
+                    {confirmAction.type === 'deactivate' ? 'Yes, Deactivate' : 'Yes, Reactivate'}
+                  </button>
+                  <button onClick={() => { setShowConfirmModal(false); setConfirmAction(null) }}
+                    className="px-5 py-3 rounded-xl font-semibold text-sm"
+                    style={{ background: '#f1f5f9', color: '#64748b' }}>
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
