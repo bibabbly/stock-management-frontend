@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdEdit, MdDelete, MdClose, MdSearch, MdInventory } from 'react-icons/md'
+import { MdAdd, MdEdit, MdDelete, MdClose, MdSearch, MdInventory, MdBlock, MdCheckCircle } from 'react-icons/md'
 import Pagination from '../components/Pagination'
 
 function Products() {
@@ -10,6 +10,7 @@ function Products() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
@@ -43,6 +44,13 @@ function Products() {
     const timer = setTimeout(() => fetchProducts(0, search, pageSize), 400)
     return () => clearTimeout(timer)
   }, [search])
+
+  // Filter products by status on frontend
+  const filteredProducts = products.filter(p => {
+    if (statusFilter === 'ACTIVE') return p.active !== false
+    if (statusFilter === 'INACTIVE') return p.active === false
+    return true
+  })
 
   const openAdd = () => {
     setEditProduct(null)
@@ -81,9 +89,39 @@ function Products() {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Delete this product?')) {
-      await api.delete(`/products/${id}`)
-      fetchProducts(page, search, pageSize)
+    if (window.confirm('Deactivate this product? It will no longer appear in sales or restock.')) {
+      try {
+        await api.put(`/products/${id}/deactivate`)
+        fetchProducts(page, search, pageSize)
+      } catch (err) {
+        alert(err.response?.data?.message || 'Failed to deactivate product')
+      }
+    }
+  }
+
+  const handleDeactivate = async (product) => {
+    if (product.quantity > 0) {
+      alert(`Cannot deactivate. Current stock is ${product.quantity}. Please do a manual stock out first.`)
+      return
+    }
+    if (window.confirm(`Deactivate "${product.name}"? It won't appear in sales or restock.`)) {
+      try {
+        await api.put(`/products/${product.id}/deactivate`)
+        fetchProducts(page, search, pageSize)
+      } catch (err) {
+        alert(err.response?.data?.message || 'Failed to deactivate')
+      }
+    }
+  }
+
+  const handleReactivate = async (product) => {
+    if (window.confirm(`Reactivate "${product.name}"?`)) {
+      try {
+        await api.put(`/products/${product.id}/reactivate`)
+        fetchProducts(page, search, pageSize)
+      } catch (err) {
+        alert(err.response?.data?.message || 'Failed to reactivate')
+      }
     }
   }
 
@@ -105,11 +143,9 @@ function Products() {
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Products</h1>
           <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} products in inventory</p>
         </div>
-        <button
-          onClick={openAdd}
+        <button onClick={openAdd}
           className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
-        >
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
           <MdAdd size={18} />
           <span className="hidden sm:inline">Add Product</span>
           <span className="sm:hidden">Add</span>
@@ -120,19 +156,34 @@ function Products() {
       <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <MdSearch size={20} style={{ color: '#94a3b8' }} />
-        <input
-          type="text"
-          placeholder="Search by name or category..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 text-sm focus:outline-none"
-          style={{ color: '#0f172a' }}
-        />
+        <input type="text" placeholder="Search by name or category..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          className="flex-1 text-sm focus:outline-none" style={{ color: '#0f172a' }} />
         {search && (
           <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
             <MdClose size={18} />
           </button>
         )}
+      </div>
+
+      {/* Status Filter */}
+      <div className="flex gap-2 mb-4">
+        {[
+          { value: 'ALL', label: '📋 All' },
+          { value: 'ACTIVE', label: '✅ Active' },
+          { value: 'INACTIVE', label: '🚫 Inactive' },
+        ].map(tab => (
+          <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
+            className="px-3 py-2 rounded-xl text-xs font-semibold"
+            style={{
+              background: statusFilter === tab.value ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
+              color: statusFilter === tab.value ? 'white' : '#64748b',
+              border: statusFilter === tab.value ? 'none' : '1px solid #f1f5f9',
+              boxShadow: statusFilter === tab.value ? '0 4px 12px rgba(59,130,246,0.3)' : '0 1px 3px rgba(0,0,0,0.06)'
+            }}>
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* DESKTOP TABLE */}
@@ -141,7 +192,7 @@ function Products() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Product', 'Category', 'Unit', 'Buying Price', 'Selling Price', 'Stock', 'Actions'].map(h => (
+              {['Product', 'Category', 'Unit', 'Buying Price', 'Selling Price', 'Stock', 'Status', 'Actions'].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: '#94a3b8' }}>{h}</th>
               ))}
@@ -149,66 +200,94 @@ function Products() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="text-center py-16">
+              <tr><td colSpan="8" className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading products...</p>
               </td></tr>
-            ) : products.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-16">
+            ) : filteredProducts.length === 0 ? (
+              <tr><td colSpan="8" className="text-center py-16">
                 <MdInventory size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No products found</p>
               </td></tr>
             ) : (
-              products.map((product, i) => (
-                <tr key={product.id}
-                  style={{ borderBottom: i < products.length - 1 ? '1px solid #f8fafc' : 'none' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                        {product.name?.charAt(0).toUpperCase()}
+              filteredProducts.map((product, i) => {
+                const isInactive = product.active === false
+                return (
+                  <tr key={product.id}
+                    style={{
+                      borderBottom: i < filteredProducts.length - 1 ? '1px solid #f8fafc' : 'none',
+                      background: isInactive ? '#f8fafc' : 'white',
+                      opacity: isInactive ? 0.7 : 1
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+                    onMouseLeave={e => e.currentTarget.style.background = isInactive ? '#f8fafc' : 'white'}>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          style={{ background: isInactive ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                          {product.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="font-semibold" style={{ color: isInactive ? '#94a3b8' : '#0f172a' }}>
+                          {product.name}
+                        </span>
                       </div>
-                      <span className="font-semibold" style={{ color: '#0f172a' }}>{product.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-medium"
-                      style={{ background: '#f1f5f9', color: '#64748b' }}>
-                      {product.category || '—'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>{product.unit || '—'}</td>
-                  <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>
-                    RWF {product.buyingPrice?.toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3.5 text-sm font-semibold" style={{ color: '#0f172a' }}>
-                    RWF {product.sellingPrice?.toLocaleString()}
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                      style={{
-                        background: product.quantity <= product.minStock ? '#fef2f2' : '#f0fdf4',
-                        color: product.quantity <= product.minStock ? '#ef4444' : '#16a34a'
-                      }}>
-                      {product.quantity} {product.unit || ''}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleEdit(product)}
-                        className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
-                        <MdEdit size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(product.id)}
-                        className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
-                        <MdDelete size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{ background: '#f1f5f9', color: '#64748b' }}>
+                        {product.category || '—'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>{product.unit || '—'}</td>
+                    <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>
+                      RWF {product.buyingPrice?.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm font-semibold" style={{ color: '#0f172a' }}>
+                      RWF {product.sellingPrice?.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                          color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                        }}>
+                        {product.quantity} {product.unit || ''}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          background: isInactive ? '#f1f5f9' : '#f0fdf4',
+                          color: isInactive ? '#94a3b8' : '#16a34a'
+                        }}>
+                        {isInactive ? '🚫 Inactive' : '✅ Active'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEdit(product)}
+                          className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}
+                          title="Edit">
+                          <MdEdit size={16} />
+                        </button>
+                        {isInactive ? (
+                          <button onClick={() => handleReactivate(product)}
+                            className="p-1.5 rounded-lg" style={{ color: '#16a34a', background: '#f0fdf4' }}
+                            title="Reactivate">
+                            <MdCheckCircle size={16} />
+                          </button>
+                        ) : (
+                          <button onClick={() => handleDeactivate(product)}
+                            className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}
+                            title="Deactivate">
+                            <MdBlock size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>
@@ -221,75 +300,96 @@ function Products() {
             <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
             <p style={{ color: '#94a3b8' }}>Loading products...</p>
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <MdInventory size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
             <p style={{ color: '#94a3b8' }}>No products found</p>
           </div>
         ) : (
-          products.map(product => (
-            <div key={product.id} className="bg-white rounded-xl p-4"
-              style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                    {product.name?.charAt(0).toUpperCase()}
+          filteredProducts.map(product => {
+            const isInactive = product.active === false
+            return (
+              <div key={product.id} className="bg-white rounded-xl p-4"
+                style={{
+                  border: isInactive ? '1px solid #e2e8f0' : '1px solid #f1f5f9',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  opacity: isInactive ? 0.75 : 1
+                }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                      style={{ background: isInactive ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                      {product.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm" style={{ color: isInactive ? '#94a3b8' : '#0f172a' }}>
+                        {product.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: '#f1f5f9', color: '#64748b' }}>
+                          {product.category || '—'}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{
+                            background: isInactive ? '#f1f5f9' : '#f0fdf4',
+                            color: isInactive ? '#94a3b8' : '#16a34a'
+                          }}>
+                          {isInactive ? '🚫 Inactive' : '✅ Active'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleEdit(product)}
+                      className="p-2 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
+                      <MdEdit size={16} />
+                    </button>
+                    {isInactive ? (
+                      <button onClick={() => handleReactivate(product)}
+                        className="p-2 rounded-lg" style={{ color: '#16a34a', background: '#f0fdf4' }}>
+                        <MdCheckCircle size={16} />
+                      </button>
+                    ) : (
+                      <button onClick={() => handleDeactivate(product)}
+                        className="p-2 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
+                        <MdBlock size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Buying</p>
+                    <p className="text-xs font-semibold" style={{ color: '#64748b' }}>
+                      RWF {product.buyingPrice?.toLocaleString()}
+                    </p>
                   </div>
                   <div>
-                    <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{product.name}</p>
-                    <span className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ background: '#f1f5f9', color: '#64748b' }}>
-                      {product.category || '—'}
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Selling</p>
+                    <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+                      RWF {product.sellingPrice?.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Stock</p>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                        color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                      }}>
+                      {product.quantity} {product.unit || ''}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => handleEdit(product)}
-                    className="p-2 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
-                    <MdEdit size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(product.id)}
-                    className="p-2 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
-                    <MdDelete size={16} />
-                  </button>
-                </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 pt-3"
-                style={{ borderTop: '1px solid #f8fafc' }}>
-                <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Buying</p>
-                  <p className="text-xs font-semibold" style={{ color: '#64748b' }}>
-                    RWF {product.buyingPrice?.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Selling</p>
-                  <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>
-                    RWF {product.sellingPrice?.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Stock</p>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                    style={{
-                      background: product.quantity <= product.minStock ? '#fef2f2' : '#f0fdf4',
-                      color: product.quantity <= product.minStock ? '#ef4444' : '#16a34a'
-                    }}>
-                    {product.quantity} {product.unit || ''}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
-      {/* Pagination */}
       <Pagination
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
+        page={page} totalPages={totalPages} totalElements={totalElements}
         pageSize={pageSize}
         onPageChange={(p) => fetchProducts(p, search, pageSize)}
         onPageSizeChange={(s) => fetchProducts(0, search, s)}
@@ -321,23 +421,18 @@ function Products() {
                   <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                     {label}
                   </label>
-                  <input
-                    type="text"
-                    value={form[key]}
+                  <input type="text" value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
                     style={{ border: '2px solid #f1f5f9', color: '#0f172a', background: '#f8fafc' }}
                     onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={e => e.target.style.borderColor = '#f1f5f9'}
-                  />
+                    onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
                 </div>
               ))}
             </div>
             <div className="flex gap-3 px-5 py-4 sticky bottom-0 bg-white"
               style={{ borderTop: '1px solid #f1f5f9' }}>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
+              <button onClick={handleSubmit} disabled={submitting}
                 className="flex-1 text-white py-2.5 rounded-xl font-semibold text-sm"
                 style={{
                   background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6, #06b6d4)',

@@ -2,17 +2,15 @@ import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import api from '../api/api'
 import { useAuth } from '../context/AuthContext'
-import { MdAdd, MdClose, MdSwapVert, MdArrowUpward, MdArrowDownward, MdSearch } from 'react-icons/md'
+import { MdAdd, MdClose, MdSwapVert, MdArrowUpward, MdArrowDownward, MdSearch, MdRemoveCircle } from 'react-icons/md'
 import Pagination from '../components/Pagination'
 
-// Searchable product dropdown — same as Sales
 function ProductSearch({ products, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
   const selected = products.find(p => p.id === parseInt(value))
-
   const filtered = products
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -27,8 +25,7 @@ function ProductSearch({ products, value, onChange }) {
 
   return (
     <div ref={ref} className="relative w-full">
-      <div
-        onClick={() => setOpen(!open)}
+      <div onClick={() => setOpen(!open)}
         className="w-full rounded-xl px-3 py-3 text-sm cursor-pointer flex items-center justify-between"
         style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: selected ? '#0f172a' : '#94a3b8', minHeight: '48px' }}>
         <span className="truncate">
@@ -40,21 +37,15 @@ function ProductSearch({ products, value, onChange }) {
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg overflow-hidden"
           style={{ border: '1px solid #e2e8f0', maxHeight: '260px' }}>
-          {/* Search input */}
           <div className="p-2" style={{ borderBottom: '1px solid #f1f5f9' }}>
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
               style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <MdSearch size={14} style={{ color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Search product..."
-                value={search}
+              <input type="text" placeholder="Search product..." value={search}
                 onChange={e => setSearch(e.target.value)}
-                onClick={e => e.stopPropagation()}
-                autoFocus
+                onClick={e => e.stopPropagation()} autoFocus
                 className="flex-1 text-xs focus:outline-none"
-                style={{ background: 'transparent', color: '#0f172a' }}
-              />
+                style={{ background: 'transparent', color: '#0f172a' }} />
               {search && (
                 <button onClick={e => { e.stopPropagation(); setSearch('') }}>
                   <MdClose size={12} style={{ color: '#94a3b8' }} />
@@ -62,21 +53,15 @@ function ProductSearch({ products, value, onChange }) {
               )}
             </div>
           </div>
-
-          {/* Product list */}
           <div style={{ overflowY: 'auto', maxHeight: '200px' }}>
             {filtered.length === 0 ? (
               <p className="text-xs text-center py-4" style={{ color: '#94a3b8' }}>No products found</p>
             ) : (
               filtered.map(p => (
-                <div
-                  key={p.id}
+                <div key={p.id}
                   onClick={() => { onChange(String(p.id)); setOpen(false); setSearch('') }}
                   className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
-                  style={{
-                    background: value === String(p.id) ? '#eff6ff' : 'white',
-                    borderBottom: '1px solid #f8fafc'
-                  }}
+                  style={{ background: value === String(p.id) ? '#eff6ff' : 'white', borderBottom: '1px solid #f8fafc' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                   onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
                   <div>
@@ -104,10 +89,11 @@ function ProductSearch({ products, value, onChange }) {
 function StockMovements() {
   const { shopId, userId } = useAuth()
   const [movements, setMovements] = useState([])
-  const [products, setProducts] = useState([])
+  const [activeProducts, setActiveProducts] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+  const [showRestockModal, setShowRestockModal] = useState(false)
+  const [showStockOutModal, setShowStockOutModal] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [filter, setFilter] = useState('ALL')
@@ -118,7 +104,8 @@ function StockMovements() {
   const [pageSize, setPageSize] = useState(20)
   const [totalIn, setTotalIn] = useState(0)
   const [totalOut, setTotalOut] = useState(0)
-  const [form, setForm] = useState({ productId: '', supplierId: '', quantity: 1, note: '' })
+  const [restockForm, setRestockForm] = useState({ productId: '', supplierId: '', quantity: 1, note: '' })
+  const [stockOutForm, setStockOutForm] = useState({ productId: '', quantity: 1, reason: '' })
 
   const fetchMovements = (pageNum = 0, type = 'ALL', searchVal = '', size = 20) => {
     setLoading(true)
@@ -136,24 +123,21 @@ function StockMovements() {
 
   const fetchSummary = () => {
     api.get(`/stock-movements/shop/${shopId}?page=0&size=1&type=IN`)
-      .then(res => setTotalIn(res.data.totalElements || 0))
-      .catch(() => {})
+      .then(res => setTotalIn(res.data.totalElements || 0)).catch(() => {})
     api.get(`/stock-movements/shop/${shopId}?page=0&size=1&type=OUT`)
-      .then(res => setTotalOut(res.data.totalElements || 0))
-      .catch(() => {})
+      .then(res => setTotalOut(res.data.totalElements || 0)).catch(() => {})
   }
 
   useEffect(() => {
     fetchMovements(0, 'ALL', '', 20)
     fetchSummary()
-    api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
+    // Only fetch ACTIVE products for restock and stock out
+    api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
     api.get(`/suppliers/shop/${shopId}/all`).then(res => setSuppliers(res.data))
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchMovements(0, filter, search, pageSize)
-    }, 400)
+    const timer = setTimeout(() => fetchMovements(0, filter, search, pageSize), 400)
     return () => clearTimeout(timer)
   }, [search])
 
@@ -169,17 +153,47 @@ function StockMovements() {
     try {
       await api.post('/stock-movements/restock', {
         shopId, userId,
-        productId: parseInt(form.productId),
-        supplierId: form.supplierId ? parseInt(form.supplierId) : null,
-        quantity: parseInt(form.quantity),
-        note: form.note || 'Restock'
+        productId: parseInt(restockForm.productId),
+        supplierId: restockForm.supplierId ? parseInt(restockForm.supplierId) : null,
+        quantity: parseInt(restockForm.quantity),
+        note: restockForm.note || 'Restock'
       })
-      setShowModal(false)
-      setForm({ productId: '', supplierId: '', quantity: 1, note: '' })
+      setShowRestockModal(false)
+      setRestockForm({ productId: '', supplierId: '', quantity: 1, note: '' })
       fetchMovements(0, filter, search, pageSize)
       fetchSummary()
+      // Refresh active products
+      api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
     } catch (err) {
       setError('Failed to restock. Please check all fields.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleStockOut = async () => {
+    if (submitting) return
+    if (!stockOutForm.reason.trim()) {
+      setError('Reason is mandatory for manual stock out')
+      return
+    }
+    setError('')
+    setSubmitting(true)
+    try {
+      await api.post('/stock-movements/manual-out', {
+        shopId, userId,
+        productId: parseInt(stockOutForm.productId),
+        quantity: parseInt(stockOutForm.quantity),
+        reason: stockOutForm.reason
+      })
+      setShowStockOutModal(false)
+      setStockOutForm({ productId: '', quantity: 1, reason: '' })
+      fetchMovements(0, filter, search, pageSize)
+      fetchSummary()
+      // Refresh active products (some may be auto-deactivated)
+      api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record stock out')
     } finally {
       setSubmitting(false)
     }
@@ -193,12 +207,24 @@ function StockMovements() {
           <h1 className="text-xl font-bold mb-0.5" style={{ color: '#0f172a' }}>Stock Movements</h1>
           <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} total movements</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
-          <MdAdd size={18} /> Restock
-        </button>
+        <div className="flex gap-2">
+          {/* Stock Out button */}
+          <button onClick={() => { setShowStockOutModal(true); setError('') }}
+            className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg, #ef4444, #f87171)', boxShadow: '0 4px 12px rgba(239,68,68,0.3)' }}>
+            <MdRemoveCircle size={18} />
+            <span className="hidden sm:inline">Stock Out</span>
+            <span className="sm:hidden">Out</span>
+          </button>
+          {/* Restock button */}
+          <button onClick={() => { setShowRestockModal(true); setError('') }}
+            className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
+            <MdAdd size={18} />
+            <span className="hidden sm:inline">Restock</span>
+            <span className="sm:hidden">In</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -231,14 +257,9 @@ function StockMovements() {
       <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         <MdSearch size={20} style={{ color: '#94a3b8' }} />
-        <input
-          type="text"
-          placeholder="Search by product name..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 text-sm focus:outline-none"
-          style={{ color: '#0f172a' }}
-        />
+        <input type="text" placeholder="Search by product name..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          className="flex-1 text-sm focus:outline-none" style={{ color: '#0f172a' }} />
         {search && (
           <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
             <MdClose size={18} />
@@ -249,8 +270,7 @@ function StockMovements() {
       {/* Filter Tabs */}
       <div className="flex gap-2 mb-4">
         {['ALL', 'IN', 'OUT'].map(tab => (
-          <button key={tab}
-            onClick={() => handleFilterChange(tab)}
+          <button key={tab} onClick={() => handleFilterChange(tab)}
             className="flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-semibold transition-all"
             style={{
               background: filter === tab ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
@@ -356,9 +376,7 @@ function StockMovements() {
                     style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
                     {movement.product?.name?.charAt(0).toUpperCase()}
                   </div>
-                  <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>
-                    {movement.product?.name}
-                  </p>
+                  <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{movement.product?.name}</p>
                 </div>
                 <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
                   style={{
@@ -369,8 +387,7 @@ function StockMovements() {
                   {movement.type}
                 </span>
               </div>
-              <div className="flex items-center justify-between pt-3"
-                style={{ borderTop: '1px solid #f8fafc' }}>
+              <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
                 <div>
                   <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Quantity</p>
                   <p className="text-lg font-bold" style={{ color: '#0f172a' }}>
@@ -384,9 +401,7 @@ function StockMovements() {
                   <p className="text-xs" style={{ color: '#94a3b8' }}>
                     {new Date(movement.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  {movement.note && (
-                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{movement.note}</p>
-                  )}
+                  {movement.note && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{movement.note}</p>}
                 </div>
               </div>
             </div>
@@ -394,96 +409,75 @@ function StockMovements() {
         )}
       </div>
 
-      {/* Pagination */}
       <Pagination
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
+        page={page} totalPages={totalPages} totalElements={totalElements}
         pageSize={pageSize}
         onPageChange={(p) => fetchMovements(p, filter, search, pageSize)}
         onPageSizeChange={(s) => fetchMovements(0, filter, search, s)}
       />
 
       {/* RESTOCK MODAL */}
-      {showModal && (
+      {showRestockModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
-
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
                 <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>Restock Product</h2>
                 <p className="text-xs" style={{ color: '#94a3b8' }}>Add stock from a supplier</p>
               </div>
-              <button onClick={() => { setShowModal(false); setError('') }}
+              <button onClick={() => { setShowRestockModal(false); setError('') }}
                 className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
                 <MdClose size={20} />
               </button>
             </div>
-
             <div className="px-5 py-4 space-y-4">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>
-              )}
-
-              {/* Searchable Product */}
+              {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
-                <ProductSearch
-                  products={products}
-                  value={form.productId}
-                  onChange={(val) => setForm({ ...form, productId: val })}
-                />
+                <ProductSearch products={activeProducts} value={restockForm.productId}
+                  onChange={(val) => setRestockForm({ ...restockForm, productId: val })} />
               </div>
-
-              {/* Supplier */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Supplier <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span></label>
-                <select value={form.supplierId}
-                  onChange={e => setForm({ ...form, supplierId: e.target.value })}
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+                  Supplier <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
+                </label>
+                <select value={restockForm.supplierId}
+                  onChange={e => setRestockForm({ ...restockForm, supplierId: e.target.value })}
                   className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
                   <option value="">-- No supplier (Direct Restock) --</option>
-                  {suppliers.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
-
-              {/* Quantity */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setForm({ ...form, quantity: Math.max(1, parseInt(form.quantity || 1) - 1) })}
+                  <button onClick={() => setRestockForm({ ...restockForm, quantity: Math.max(1, parseInt(restockForm.quantity || 1) - 1) })}
                     className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
                     style={{ background: '#f1f5f9', color: '#64748b' }}>−</button>
-                  <input type="number" min="1" value={form.quantity}
-                    onChange={e => setForm({ ...form, quantity: e.target.value })}
+                  <input type="number" min="1" value={restockForm.quantity}
+                    onChange={e => setRestockForm({ ...restockForm, quantity: e.target.value })}
                     className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none text-center font-bold"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                     onFocus={e => e.target.style.borderColor = '#3b82f6'}
                     onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-                  <button
-                    onClick={() => setForm({ ...form, quantity: parseInt(form.quantity || 1) + 1 })}
+                  <button onClick={() => setRestockForm({ ...restockForm, quantity: parseInt(restockForm.quantity || 1) + 1 })}
                     className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
                     style={{ background: '#3b82f6', color: 'white' }}>+</button>
                 </div>
               </div>
-
-              {/* Note */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
-                <input type="text" value={form.note}
-                  onChange={e => setForm({ ...form, note: e.target.value })}
+                <input type="text" value={restockForm.note}
+                  onChange={e => setRestockForm({ ...restockForm, note: e.target.value })}
                   className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
@@ -491,7 +485,6 @@ function StockMovements() {
                   placeholder="e.g. Monthly restock" />
               </div>
             </div>
-
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleRestock} disabled={submitting}
                 className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
@@ -501,7 +494,109 @@ function StockMovements() {
                 }}>
                 {submitting ? 'Saving...' : 'Confirm Restock'}
               </button>
-              <button onClick={() => { setShowModal(false); setError('') }}
+              <button onClick={() => { setShowRestockModal(false); setError('') }}
+                className="px-5 py-3 rounded-xl font-semibold text-sm"
+                style={{ background: '#f1f5f9', color: '#64748b' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MANUAL STOCK OUT MODAL */}
+      {showStockOutModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
+            style={{ borderRadius: '20px 20px 0 0' }}>
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
+            </div>
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>Manual Stock Out</h2>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>Record stolen, expired or damaged stock</p>
+              </div>
+              <button onClick={() => { setShowStockOutModal(false); setError(''); setStockOutForm({ productId: '', quantity: 1, reason: '' }) }}
+                className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
+                <MdClose size={20} />
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+
+              {/* Warning */}
+              <div className="rounded-xl p-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+                <p className="text-xs font-semibold" style={{ color: '#d97706' }}>⚠️ This will reduce stock permanently</p>
+                <p className="text-xs mt-1" style={{ color: '#92400e' }}>Use for: stolen goods, expired items, damaged stock</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
+                <ProductSearch products={activeProducts} value={stockOutForm.productId}
+                  onChange={(val) => setStockOutForm({ ...stockOutForm, productId: val })} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setStockOutForm({ ...stockOutForm, quantity: Math.max(1, parseInt(stockOutForm.quantity || 1) - 1) })}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
+                    style={{ background: '#f1f5f9', color: '#64748b' }}>−</button>
+                  <input type="number" min="1" value={stockOutForm.quantity}
+                    onChange={e => setStockOutForm({ ...stockOutForm, quantity: e.target.value })}
+                    className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none text-center font-bold"
+                    style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                    onFocus={e => e.target.style.borderColor = '#ef4444'}
+                    onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+                  <button onClick={() => setStockOutForm({ ...stockOutForm, quantity: parseInt(stockOutForm.quantity || 1) + 1 })}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
+                    style={{ background: '#ef4444', color: 'white' }}>+</button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+                  Reason <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input type="text" value={stockOutForm.reason}
+                  onChange={e => setStockOutForm({ ...stockOutForm, reason: e.target.value })}
+                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+                  style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                  onFocus={e => e.target.style.borderColor = '#ef4444'}
+                  onBlur={e => e.target.style.borderColor = '#f1f5f9'}
+                  placeholder="e.g. Stolen, Expired, Damaged" />
+                {/* Quick reason buttons */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {['Stolen', 'Expired', 'Damaged', 'Lost', 'Inventory adjustment'].map(r => (
+                    <button key={r} onClick={() => setStockOutForm({ ...stockOutForm, reason: r })}
+                      className="px-2.5 py-1 rounded-lg text-xs"
+                      style={{
+                        background: stockOutForm.reason === r ? '#fef2f2' : '#f8fafc',
+                        color: stockOutForm.reason === r ? '#ef4444' : '#64748b',
+                        border: stockOutForm.reason === r ? '1px solid #fecaca' : '1px solid #e2e8f0'
+                      }}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+              <button onClick={handleStockOut}
+                disabled={submitting || !stockOutForm.reason.trim() || !stockOutForm.productId}
+                className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
+                style={{
+                  background: submitting || !stockOutForm.reason.trim() || !stockOutForm.productId
+                    ? '#94a3b8' : 'linear-gradient(135deg, #ef4444, #f87171)',
+                  cursor: submitting || !stockOutForm.reason.trim() || !stockOutForm.productId
+                    ? 'not-allowed' : 'pointer'
+                }}>
+                {submitting ? 'Saving...' : 'Confirm Stock Out'}
+              </button>
+              <button onClick={() => { setShowStockOutModal(false); setError(''); setStockOutForm({ productId: '', quantity: 1, reason: '' }) }}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"
                 style={{ background: '#f1f5f9', color: '#64748b' }}>
                 Cancel

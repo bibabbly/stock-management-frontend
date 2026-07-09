@@ -124,7 +124,8 @@ function Sales() {
 
   useEffect(() => {
     fetchSales()
-    api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
+    //api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
+    api.get(`/products/shop/${shopId}/active`).then(res => setProducts(res.data || []))
     api.get(`/suppliers/shop/${shopId}/all`).then(res => {
       const list = res.data
       const hasCashNorm = list.some(s => s.name === 'CashNorm')
