@@ -2,18 +2,16 @@ import { useEffect, useState, useRef } from 'react'
 import Layout from '../components/Layout'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
-import { MdAdd, MdClose, MdPointOfSale, MdPrint, MdSearch } from 'react-icons/md'
+import { MdAdd, MdClose, MdPointOfSale, MdPrint, MdSearch, MdCancel } from 'react-icons/md'
 import Receipt from '../components/Receipt'
 import Pagination from '../components/Pagination'
 
-// Searchable product dropdown component
 function ProductSearch({ products, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
   const selected = products.find(p => p.id === parseInt(value))
-
   const filtered = products
     .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -28,14 +26,11 @@ function ProductSearch({ products, value, onChange }) {
 
   return (
     <div ref={ref} className="relative flex-1">
-      <div
-        onClick={() => setOpen(!open)}
+      <div onClick={() => setOpen(!open)}
         className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer flex items-center justify-between"
         style={{ border: '2px solid #f1f5f9', background: 'white', color: selected ? '#0f172a' : '#94a3b8', minHeight: '44px' }}>
         <span className="truncate">
-          {selected
-            ? `${selected.name} (×${selected.quantity}) — RWF ${selected.sellingPrice?.toLocaleString()}`
-            : 'Select product'}
+          {selected ? `${selected.name} (×${selected.quantity}) — RWF ${selected.sellingPrice?.toLocaleString()}` : 'Select product'}
         </span>
         <MdSearch size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
       </div>
@@ -43,21 +38,15 @@ function ProductSearch({ products, value, onChange }) {
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg overflow-hidden"
           style={{ border: '1px solid #e2e8f0', maxHeight: '260px' }}>
-          {/* Search input */}
           <div className="p-2" style={{ borderBottom: '1px solid #f1f5f9' }}>
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
               style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <MdSearch size={14} style={{ color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Search product..."
-                value={search}
+              <input type="text" placeholder="Search product..." value={search}
                 onChange={e => setSearch(e.target.value)}
-                onClick={e => e.stopPropagation()}
-                autoFocus
+                onClick={e => e.stopPropagation()} autoFocus
                 className="flex-1 text-xs focus:outline-none"
-                style={{ background: 'transparent', color: '#0f172a' }}
-              />
+                style={{ background: 'transparent', color: '#0f172a' }} />
               {search && (
                 <button onClick={e => { e.stopPropagation(); setSearch('') }}>
                   <MdClose size={12} style={{ color: '#94a3b8' }} />
@@ -65,37 +54,23 @@ function ProductSearch({ products, value, onChange }) {
               )}
             </div>
           </div>
-
-          {/* Product list */}
           <div style={{ overflowY: 'auto', maxHeight: '200px' }}>
             {filtered.length === 0 ? (
               <p className="text-xs text-center py-4" style={{ color: '#94a3b8' }}>No products found</p>
             ) : (
               filtered.map(p => (
-                <div
-                  key={p.id}
+                <div key={p.id}
                   onClick={() => { onChange(p.id); setOpen(false); setSearch('') }}
                   className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
-                  style={{
-                    background: value === String(p.id) ? '#eff6ff' : 'white',
-                    borderBottom: '1px solid #f8fafc'
-                  }}
+                  style={{ background: value === String(p.id) ? '#eff6ff' : 'white', borderBottom: '1px solid #f8fafc' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                   onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
                   <div>
                     <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>{p.name}</p>
-                    <p className="text-xs" style={{ color: '#94a3b8' }}>
-                      Stock: {p.quantity} · RWF {p.sellingPrice?.toLocaleString()}
-                    </p>
+                    <p className="text-xs" style={{ color: '#94a3b8' }}>Stock: {p.quantity} · RWF {p.sellingPrice?.toLocaleString()}</p>
                   </div>
-                  {p.quantity <= 0 && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
-                      style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>
-                  )}
-                  {p.quantity > 0 && p.quantity <= 5 && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
-                      style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>
-                  )}
+                  {p.quantity <= 0 && <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold" style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>}
+                  {p.quantity > 0 && p.quantity <= 5 && <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold" style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>}
                 </div>
               ))
             )}
@@ -107,7 +82,7 @@ function ProductSearch({ products, value, onChange }) {
 }
 
 function Sales() {
-  const { shopId, userId } = useAuth()
+  const { shopId, userId, hasPermission } = useAuth()
   const [sales, setSales] = useState([])
   const [products, setProducts] = useState([])
   const [supplierId, setSupplierId] = useState('')
@@ -123,6 +98,15 @@ function Sales() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  // Cancel modal state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [saleToCancel, setSaleToCancel] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+
+  const canCancel = hasPermission('CANCEL_SALES')
 
   const fetchSales = (pageNum = 0, size = pageSize) => {
     setLoading(true)
@@ -170,13 +154,6 @@ function Sales() {
     return 0
   }
 
-  const getItemTotal = (item) => {
-    const product = products.find(p => p.id === parseInt(item.productId))
-    if (!product) return 0
-    const subtotal = product.sellingPrice * parseInt(item.quantity || 0)
-    return subtotal - getItemDiscount(item)
-  }
-
   const formOriginal = items.reduce((sum, item) => {
     const product = products.find(p => p.id === parseInt(item.productId))
     return sum + (product ? product.sellingPrice * parseInt(item.quantity || 0) : 0)
@@ -185,15 +162,10 @@ function Sales() {
   const formTotalDiscount = items.reduce((sum, item) => sum + getItemDiscount(item), 0)
   const formTotal = formOriginal - formTotalDiscount
 
-  const getBoughtAt = (sale) => {
-    return sale.items?.reduce((sum, item) => {
-      return sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0))
-    }, 0) || 0
-  }
+  const getBoughtAt = (sale) =>
+    sale.items?.reduce((sum, item) => sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0)), 0) || 0
 
-  const getProfit = (sale) => {
-    return (sale.totalAmount || 0) - getBoughtAt(sale)
-  }
+  const getProfit = (sale) => (sale.totalAmount || 0) - getBoughtAt(sale)
 
   const handleSubmit = async () => {
     if (submitting) return
@@ -219,6 +191,33 @@ function Sales() {
       setError(err.response?.data?.message || 'Failed to create sale')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const openCancelModal = (sale) => {
+    setSaleToCancel(sale)
+    setCancelReason('')
+    setCancelError('')
+    setShowCancelModal(true)
+  }
+
+  const handleCancel = async () => {
+    if (cancelling || !cancelReason.trim()) return
+    setCancelling(true)
+    setCancelError('')
+    try {
+      await api.post(`/sales/${saleToCancel.id}/cancel`, {
+        userId,
+        reason: cancelReason
+      })
+      setShowCancelModal(false)
+      setSaleToCancel(null)
+      setCancelReason('')
+      fetchSales(page, pageSize)
+    } catch (err) {
+      setCancelError(err.response?.data?.message || 'Failed to cancel sale')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -272,14 +271,22 @@ function Sales() {
                 const boughtAt = getBoughtAt(sale)
                 const profit = getProfit(sale)
                 const isProfit = profit >= 0
+                const isCancelled = sale.status === 'CANCELLED'
                 return (
                   <tr key={sale.id}
-                    style={{ borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                    style={{
+                      borderBottom: i < sales.length - 1 ? '1px solid #f8fafc' : 'none',
+                      background: isCancelled ? '#fef2f2' : 'white'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = isCancelled ? '#fee2e2' : '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = isCancelled ? '#fef2f2' : 'white'}>
                     <td className="px-4 py-3.5">
                       <p className="font-medium text-sm" style={{ color: '#0f172a' }}>{new Date(sale.date).toLocaleDateString()}</p>
                       <p className="text-xs" style={{ color: '#94a3b8' }}>{new Date(sale.date).toLocaleTimeString()}</p>
+                      {isCancelled && (
+                        <span className="px-1.5 py-0.5 rounded text-xs font-bold"
+                          style={{ background: '#fef2f2', color: '#ef4444' }}>CANCELLED</span>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex flex-wrap gap-1">
@@ -291,9 +298,7 @@ function Sales() {
                             </span>
                             {item.discountAmount > 0 && (
                               <span className="text-xs px-2" style={{ color: '#ef4444' }}>
-                                -{item.discountType === 'PERCENTAGE'
-                                  ? `${item.discountValue}%`
-                                  : `RWF ${item.discountAmount?.toLocaleString()}`}
+                                -{item.discountType === 'PERCENTAGE' ? `${item.discountValue}%` : `RWF ${item.discountAmount?.toLocaleString()}`}
                               </span>
                             )}
                           </div>
@@ -305,14 +310,11 @@ function Sales() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                        style={{
-                          background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
-                          color: paymentColors[sale.paymentMethod]?.color || '#64748b'
-                        }}>{sale.paymentMethod}</span>
+                        style={{ background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9', color: paymentColors[sale.paymentMethod]?.color || '#64748b' }}>
+                        {sale.paymentMethod}
+                      </span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
-                      RWF {boughtAt.toLocaleString()}
-                    </td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>RWF {boughtAt.toLocaleString()}</td>
                     <td className="px-4 py-3.5 font-bold text-sm" style={{ color: '#0f172a' }}>
                       RWF {sale.totalAmount?.toLocaleString()}
                       {sale.discountAmount > 0 && (
@@ -322,28 +324,31 @@ function Sales() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
-                      {sale.discountAmount > 0
-                        ? `- RWF ${sale.discountAmount?.toLocaleString()}`
-                        : <span style={{ color: '#cbd5e1' }}>—</span>}
+                      {sale.discountAmount > 0 ? `- RWF ${sale.discountAmount?.toLocaleString()}` : <span style={{ color: '#cbd5e1' }}>—</span>}
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="px-2 py-1 rounded-lg text-xs font-bold"
-                        style={{
-                          background: isProfit ? '#f0fdf4' : '#fef2f2',
-                          color: isProfit ? '#16a34a' : '#ef4444'
-                        }}>
+                        style={{ background: isProfit ? '#f0fdf4' : '#fef2f2', color: isProfit ? '#16a34a' : '#ef4444' }}>
                         {isProfit ? '+' : ''}RWF {profit.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
-                      {sale.user?.name || '—'}
-                    </td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>{sale.user?.name || '—'}</td>
                     <td className="px-4 py-3.5">
-                      <button onClick={() => setSelectedSale(sale)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        style={{ background: '#eff6ff', color: '#3b82f6' }}>
-                        <MdPrint size={14} /> Print
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {/* Cancel button — only for users with CANCEL_SALES permission and same day */}
+                        {canCancel && !isCancelled && (
+                          <button onClick={() => openCancelModal(sale)}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: '#fef2f2', color: '#ef4444' }}>
+                            <MdCancel size={13} /> Cancel
+                          </button>
+                        )}
+                        <button onClick={() => setSelectedSale(sale)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                          <MdPrint size={14} /> Print
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -370,19 +375,27 @@ function Sales() {
             const boughtAt = getBoughtAt(sale)
             const profit = getProfit(sale)
             const isProfit = profit >= 0
+            const isCancelled = sale.status === 'CANCELLED'
             return (
               <div key={sale.id} className="bg-white rounded-xl p-4"
-                style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                style={{
+                  border: isCancelled ? '1px solid #fecaca' : '1px solid #f1f5f9',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  background: isCancelled ? '#fef2f2' : 'white'
+                }}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
-                      RWF {sale.totalAmount?.toLocaleString()}
-                      {sale.discountAmount > 0 && (
-                        <span className="ml-2 text-xs font-normal line-through" style={{ color: '#94a3b8' }}>
-                          RWF {sale.originalAmount?.toLocaleString()}
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm" style={{ color: '#0f172a' }}>
+                        RWF {sale.totalAmount?.toLocaleString()}
+                      </p>
+                      {isCancelled && (
+                        <span className="px-1.5 py-0.5 rounded text-xs font-bold"
+                          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}>
+                          CANCELLED
                         </span>
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs" style={{ color: '#94a3b8' }}>
                       {new Date(sale.date).toLocaleDateString()} · {new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
@@ -390,33 +403,26 @@ function Sales() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                      style={{
-                        background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
-                        color: paymentColors[sale.paymentMethod]?.color || '#64748b'
-                      }}>{sale.paymentMethod}</span>
+                      style={{ background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9', color: paymentColors[sale.paymentMethod]?.color || '#64748b' }}>
+                      {sale.paymentMethod}
+                    </span>
                     <button onClick={() => setSelectedSale(sale)}
                       className="p-2 rounded-lg" style={{ background: '#eff6ff', color: '#3b82f6' }}>
                       <MdPrint size={16} />
                     </button>
                   </div>
                 </div>
+
                 <div className="space-y-1 mb-3">
                   {sale.items?.map(item => (
                     <div key={item.id} className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-full text-xs"
-                        style={{ background: '#f1f5f9', color: '#64748b' }}>
+                      <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: '#f1f5f9', color: '#64748b' }}>
                         {item.product?.name} ×{item.quantity}
                       </span>
-                      {item.discountAmount > 0 && (
-                        <span className="text-xs" style={{ color: '#ef4444' }}>
-                          -{item.discountType === 'PERCENTAGE'
-                            ? `${item.discountValue}%`
-                            : `RWF ${item.discountAmount?.toLocaleString()}`}
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
+
                 <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Bought At</p>
@@ -435,9 +441,21 @@ function Sales() {
                     </p>
                   </div>
                 </div>
-                <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
-                  Supplier: <span style={{ color: '#64748b', fontWeight: 500 }}>{sale.supplier?.name || 'CashNorm'}</span>
-                </p>
+
+                {/* Cancel button mobile */}
+                {canCancel && !isCancelled && (
+                  <button onClick={() => openCancelModal(sale)}
+                    className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold"
+                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}>
+                    <MdCancel size={14} /> Cancel Sale
+                  </button>
+                )}
+
+                {isCancelled && sale.cancelReason && (
+                  <p className="mt-2 text-xs" style={{ color: '#ef4444' }}>
+                    Reason: {sale.cancelReason}
+                  </p>
+                )}
               </div>
             )
           })
@@ -450,6 +468,94 @@ function Sales() {
         onPageChange={(p) => fetchSales(p, pageSize)}
         onPageSizeChange={(s) => fetchSales(0, s)}
       />
+
+      {/* CANCEL MODAL */}
+      {showCancelModal && saleToCancel && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
+            style={{ borderRadius: '20px 20px 0 0' }}>
+
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
+            </div>
+
+            <div className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>Cancel Sale</h2>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>
+                  RWF {saleToCancel.totalAmount?.toLocaleString()} · {new Date(saleToCancel.date).toLocaleString()}
+                </p>
+              </div>
+              <button onClick={() => setShowCancelModal(false)}
+                className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
+                <MdClose size={20} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              {cancelError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{cancelError}</div>
+              )}
+
+              {/* Warning */}
+              <div className="rounded-xl p-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+                <p className="text-xs font-semibold" style={{ color: '#d97706' }}>⚠️ This action will:</p>
+                <p className="text-xs mt-1" style={{ color: '#92400e' }}>• Mark this sale as CANCELLED</p>
+                <p className="text-xs" style={{ color: '#92400e' }}>• Restore stock for all items</p>
+                <p className="text-xs" style={{ color: '#92400e' }}>• This cannot be undone</p>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+                  Reason for cancellation *
+                </label>
+                <input type="text" value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder="e.g. Customer returned items"
+                  className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+                  style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                  onFocus={e => e.target.style.borderColor = '#ef4444'}
+                  onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+              </div>
+
+              {/* Quick reasons */}
+              <div className="flex flex-wrap gap-2">
+                {['Customer returned items', 'Wrong product selected', 'Duplicate sale', 'Customer changed mind'].map(r => (
+                  <button key={r} onClick={() => setCancelReason(r)}
+                    className="px-2.5 py-1 rounded-lg text-xs"
+                    style={{
+                      background: cancelReason === r ? '#fef2f2' : '#f8fafc',
+                      color: cancelReason === r ? '#ef4444' : '#64748b',
+                      border: cancelReason === r ? '1px solid #fecaca' : '1px solid #e2e8f0'
+                    }}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+              <button onClick={handleCancel}
+                disabled={cancelling || !cancelReason.trim()}
+                className="flex-1 text-white py-3 rounded-xl font-semibold text-sm"
+                style={{
+                  background: cancelling || !cancelReason.trim() ? '#94a3b8' : 'linear-gradient(135deg, #ef4444, #f87171)',
+                  cursor: cancelling || !cancelReason.trim() ? 'not-allowed' : 'pointer'
+                }}>
+                {cancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
+              <button onClick={() => setShowCancelModal(false)}
+                className="px-5 py-3 rounded-xl font-semibold text-sm"
+                style={{ background: '#f1f5f9', color: '#64748b' }}>
+                Keep Sale
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* NEW SALE MODAL */}
       {showModal && (
@@ -479,7 +585,6 @@ function Sales() {
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>
               )}
 
-              {/* Payment Method */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Payment Method</label>
                 <div className="flex gap-2">
@@ -497,7 +602,6 @@ function Sales() {
                 </div>
               </div>
 
-              {/* Supplier */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Supplier / Customer</label>
                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
@@ -510,7 +614,6 @@ function Sales() {
                 </select>
               </div>
 
-              {/* Products with searchable dropdown + per-item discount */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Products</label>
                 <div className="space-y-3">
@@ -523,8 +626,6 @@ function Sales() {
                     return (
                       <div key={index} className="rounded-xl p-3 space-y-2"
                         style={{ background: '#f8fafc', border: '1px solid #f1f5f9' }}>
-
-                        {/* Searchable product + qty */}
                         <div className="flex gap-2 items-center">
                           <ProductSearch
                             products={products}
@@ -532,28 +633,21 @@ function Sales() {
                             onChange={(productId) => updateItem(index, 'productId', String(productId))}
                           />
                           <div className="flex items-center gap-1 flex-shrink-0">
-  <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
-    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
-    style={{ background: '#e2e8f0', color: '#64748b' }}>−</button>
-  <input
-    type="number"
-    min="1"
-    value={item.quantity}
-    onChange={e => {
-      const val = parseInt(e.target.value)
-      if (!isNaN(val) && val >= 1) updateItem(index, 'quantity', val)
-    }}
-    onFocus={e => e.target.select()}
-    className="text-center text-sm font-bold focus:outline-none rounded-lg"
-    style={{
-      width: '48px', height: '32px',
-      border: '2px solid #e2e8f0',
-      color: '#0f172a', background: '#f8fafc'
-    }} />
-  <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
-    className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
-    style={{ background: '#3b82f6', color: 'white' }}>+</button>
-</div>
+                            <button onClick={() => updateItem(index, 'quantity', Math.max(1, parseInt(item.quantity || 1) - 1))}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                              style={{ background: '#e2e8f0', color: '#64748b' }}>−</button>
+                            <input type="number" min="1" value={item.quantity}
+                              onChange={e => {
+                                const val = parseInt(e.target.value)
+                                if (!isNaN(val) && val >= 1) updateItem(index, 'quantity', val)
+                              }}
+                              onFocus={e => e.target.select()}
+                              className="text-center text-sm font-bold focus:outline-none rounded-lg"
+                              style={{ width: '48px', height: '32px', border: '2px solid #e2e8f0', color: '#0f172a', background: '#f8fafc' }} />
+                            <button onClick={() => updateItem(index, 'quantity', parseInt(item.quantity || 1) + 1)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                              style={{ background: '#3b82f6', color: 'white' }}>+</button>
+                          </div>
                           {items.length > 1 && (
                             <button onClick={() => removeItem(index)}
                               className="p-1.5 rounded-lg flex-shrink-0"
@@ -563,7 +657,6 @@ function Sales() {
                           )}
                         </div>
 
-                        {/* Discount toggle */}
                         <div className="flex gap-1.5">
                           {['NONE', 'PERCENTAGE', 'FIXED'].map(type => (
                             <button key={type}
@@ -580,8 +673,7 @@ function Sales() {
                         </div>
 
                         {item.discountType !== 'NONE' && (
-                          <input type="number" min="0"
-                            value={item.discountValue}
+                          <input type="number" min="0" value={item.discountValue}
                             onChange={e => updateItem(index, 'discountValue', e.target.value)}
                             placeholder={item.discountType === 'PERCENTAGE' ? 'e.g. 10 for 10%' : 'e.g. 5000'}
                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
@@ -597,9 +689,7 @@ function Sales() {
                             </span>
                             <span className="font-bold" style={{ color: '#0f172a' }}>
                               RWF {itemFinal.toLocaleString()}
-                              {itemDisc > 0 && <span className="ml-1 line-through font-normal" style={{ color: '#94a3b8' }}>
-                                RWF {itemSubtotal.toLocaleString()}
-                              </span>}
+                              {itemDisc > 0 && <span className="ml-1 line-through font-normal" style={{ color: '#94a3b8' }}>RWF {itemSubtotal.toLocaleString()}</span>}
                             </span>
                           </div>
                         )}
@@ -614,7 +704,6 @@ function Sales() {
                 </button>
               </div>
 
-              {/* Total Summary */}
               {formOriginal > 0 && (
                 <div className="rounded-xl p-4 space-y-2"
                   style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
@@ -631,9 +720,7 @@ function Sales() {
                   <div className="flex items-center justify-between pt-2"
                     style={{ borderTop: '1px solid rgba(59,130,246,0.2)' }}>
                     <span className="text-sm font-bold" style={{ color: '#64748b' }}>Total</span>
-                    <span className="text-xl font-bold" style={{ color: '#3b82f6' }}>
-                      RWF {formTotal.toLocaleString()}
-                    </span>
+                    <span className="text-xl font-bold" style={{ color: '#3b82f6' }}>RWF {formTotal.toLocaleString()}</span>
                   </div>
                 </div>
               )}
