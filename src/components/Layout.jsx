@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { MdCancel } from 'react-icons/md'
-import { MdPointOfSale } from 'react-icons/md'
 import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
   MdSwapVert, MdMenu, MdLogout, MdSettings,
