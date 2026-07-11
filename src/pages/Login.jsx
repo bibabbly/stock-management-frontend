@@ -3,6 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import api from '../api/api'
 
+// Page order for redirect priority
+const PAGE_ROUTES = [
+  { key: 'DASHBOARD', path: '/' },
+  { key: 'SALES', path: '/sales' },
+  { key: 'PRODUCTS', path: '/products' },
+  { key: 'SUPPLIERS', path: '/suppliers' },
+  { key: 'STOCK_MOVEMENTS', path: '/stock-movements' },
+  { key: 'DEBTS', path: '/debts' },
+  { key: 'SALES_REPORT', path: '/sales-report' },
+  { key: 'PURCHASE_REPORT', path: '/purchase-report' },
+  { key: 'CANCELLED_SALES', path: '/cancelled-sales' },
+  { key: 'USERS', path: '/users' },
+  { key: 'ROLES', path: '/roles' },
+  { key: 'SETTINGS', path: '/settings' },
+]
+
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,17 +35,27 @@ function Login() {
     setError('')
     try {
       const response = await api.post('/auth/login', { email, password })
-   const userData = {
-  name: response.data.name,
-  email: response.data.email,
-  role: response.data.role,
-  shopName: response.data.shopName,
-  userId: response.data.userId,
-  shopId: response.data.shopId,
-  permissions: response.data.permissions || []
-}
+      const userData = {
+        name: response.data.name,
+        email: response.data.email,
+        role: response.data.role,
+        shopName: response.data.shopName,
+        userId: response.data.userId,
+        shopId: response.data.shopId,
+        permissions: response.data.permissions || []
+      }
       login(userData, response.data.token)
-      navigate('/')
+
+      // Smart redirect — go to first page user has access to
+      if (userData.role === 'ADMIN') {
+        navigate('/')
+      } else {
+        const firstPage = PAGE_ROUTES.find(p =>
+          userData.permissions.includes(p.key)
+        )
+        navigate(firstPage ? firstPage.path : '/')
+      }
+
     } catch (err) {
       setError(err.response?.data || 'Invalid email or password')
     } finally {
@@ -40,11 +66,9 @@ function Login() {
   return (
     <div className="min-h-screen flex">
 
-      {/* Left Panel - Dark like sidebar */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-2/5 flex-col justify-between p-12 relative overflow-hidden"
         style={{ background: '#0f172a' }}>
-
-        {/* Background glow */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute top-0 left-0 w-80 h-80 rounded-full opacity-10"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', filter: 'blur(80px)', transform: 'translate(-40%, -40%)' }} />
@@ -52,7 +76,6 @@ function Login() {
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', filter: 'blur(80px)', transform: 'translate(40%, 40%)' }} />
         </div>
 
-        {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-lg"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
@@ -64,7 +87,6 @@ function Login() {
           </div>
         </div>
 
-        {/* Main text */}
         <div className="relative z-10">
           <h2 className="text-4xl font-bold leading-tight mb-5 text-white">
             Run your<br />business<br />
@@ -77,8 +99,6 @@ function Login() {
           <p className="text-sm mb-8 leading-relaxed" style={{ color: '#64748b' }}>
             Track products, sales, and profits in real-time. Built for Rwandan businesses.
           </p>
-
-          {/* Features */}
           <div className="space-y-3">
             {[
               { icon: '📦', text: 'Real-time inventory tracking' },
@@ -97,18 +117,16 @@ function Login() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="relative z-10">
           <p className="text-xs" style={{ color: '#334155' }}>🇷🇼 INNOTEWO INC LTD — Kigali, Rwanda</p>
         </div>
       </div>
 
-      {/* Right Panel - White like dashboard content */}
+      {/* Right Panel */}
       <div className="w-full lg:w-3/5 flex items-center justify-center p-8"
         style={{ background: '#f1f5f9' }}>
         <div className="w-full max-w-md">
 
-          {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white"
               style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
@@ -120,12 +138,11 @@ function Login() {
             </div>
           </div>
 
-          {/* Form Card */}
           <div className="bg-white rounded-2xl p-8"
             style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' }}>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Welcome back </h2>
+              <h2 className="text-2xl font-bold mb-1" style={{ color: '#0f172a' }}>Welcome back</h2>
               <p className="text-sm" style={{ color: '#94a3b8' }}>Sign in to your BizTrack account</p>
             </div>
 
@@ -141,17 +158,13 @@ function Login() {
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   EMAIL ADDRESS
                 </label>
-                <input
-                  type="email"
-                  value={email}
+                <input type="email" value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
                   style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}
-                  placeholder="admin@shop.com"
-                  required
-                />
+                  placeholder="admin@shop.com" required />
               </div>
 
               <div>
@@ -159,17 +172,13 @@ function Login() {
                   PASSWORD
                 </label>
                 <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
+                  <input type={showPassword ? 'text' : 'password'} value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-4 py-3 pr-12 rounded-xl text-sm focus:outline-none transition-all"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                     onFocus={e => e.target.style.borderColor = '#3b82f6'}
                     onBlur={e => e.target.style.borderColor = '#f1f5f9'}
-                    placeholder="••••••••"
-                    required
-                  />
+                    placeholder="••••••••" required />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-lg"
                     style={{ color: '#94a3b8' }}>
@@ -187,17 +196,6 @@ function Login() {
                 {loading ? 'Signing in...' : 'Sign In →'}
               </button>
             </form>
-          {/** Registration disabled - contact INNOTEWO INC LTD
-           * 
-           *    <p className="text-center text-sm mt-6" style={{ color: '#94a3b8' }}>
-              Don't have an account?{' '}
-              <span onClick={() => navigate('/register-shop')}
-                className="font-semibold cursor-pointer" style={{ color: '#3b82f6' }}>
-                Register your shop
-              </span>
-            </p>
-           */}
-         
           </div>
         </div>
       </div>
