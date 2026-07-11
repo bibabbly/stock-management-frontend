@@ -18,6 +18,7 @@ import CancelledSales from './pages/CancelledSales'
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminRoute from './components/AdminRoute'
+import CashDeskReport from './pages/CashDeskReport'
 
 function PrivateRoute({ children }) {
   const { token } = useAuth()
@@ -45,6 +46,7 @@ function App() {
         <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
         <Route path="/debts" element={<PrivateRoute><Debts /></PrivateRoute>} />
         <Route path="/cancelled-sales" element={<PrivateRoute><CancelledSales /></PrivateRoute>} />
+        <Route path="/cash-desk-report" element={<PrivateRoute><CashDeskReport /></PrivateRoute>} />
       </Routes>
     </AuthProvider>
   )

@@ -16,6 +16,7 @@ const ALL_PAGES = [
   { key: 'PURCHASE_REPORT', label: '🛍️ Purchase Report' },
   { key: 'DEBTS', label: '💳 Debts' },
   { key: 'CANCELLED_SALES', label: '🚫 Cancelled Sales' },
+  { key: 'CASH_DESK_REPORT', label: '💰 Cash Desk Report' },
   { key: 'USERS', label: '👥 Users' },
   { key: 'ROLES', label: '🔐 Roles' },
 ]

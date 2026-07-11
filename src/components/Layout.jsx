@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { MdCancel } from 'react-icons/md'
+import { MdPointOfSale } from 'react-icons/md'
 import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
   MdSwapVert, MdMenu, MdLogout, MdSettings,
@@ -76,7 +77,9 @@ function Layout({ children }) {
     { path: '/roles', icon: <MdAdminPanelSettings size={20} />, label: 'Roles', page: 'ROLES' },
     // in allNavItems
    { path: '/cancelled-sales', icon: <MdCancel size={20} />, label: 'Cancelled Sales', page: 'CANCEL_SALES' },
+   { path: '/cash-desk-report', icon: <MdPointOfSale size={20} />, label: 'Cash Desk', page: 'CASH_DESK_REPORT' },
   ]
+
 
   const navItems = allNavItems.filter(item => hasPermission(item.page))
 
