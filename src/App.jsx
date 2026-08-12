@@ -19,6 +19,7 @@ import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminRoute from './components/AdminRoute'
 import CashDeskReport from './pages/CashDeskReport'
+import StockTransfer from './pages/StockTransfer'
 
 function PrivateRoute({ children }) {
   const { token } = useAuth()
@@ -39,6 +40,7 @@ function App() {
         <Route path="/sales" element={<PrivateRoute><Sales /></PrivateRoute>} />
         <Route path="/suppliers" element={<PrivateRoute><Suppliers /></PrivateRoute>} />
         <Route path="/stock-movements" element={<PrivateRoute><StockMovements /></PrivateRoute>} />
+        <Route path="/stock-transfer" element={<PrivateRoute><StockTransfer /></PrivateRoute>} />
         <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
         <Route path="/sales-report" element={<PrivateRoute><SalesReport /></PrivateRoute>} />
         <Route path="/purchase-report" element={<PrivateRoute><PurchaseReport /></PrivateRoute>} />

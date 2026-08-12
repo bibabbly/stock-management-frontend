@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { MdCancel } from 'react-icons/md'
+import { MdSwapHoriz } from 'react-icons/md'
 import {
   MdDashboard, MdInventory, MdPointOfSale, MdPeople,
   MdSwapVert, MdMenu, MdLogout, MdSettings,
@@ -68,6 +69,7 @@ function Layout({ children }) {
     { path: '/sales', icon: <MdPointOfSale size={20} />, label: 'Sales', page: 'SALES' },
     { path: '/suppliers', icon: <MdPeople size={20} />, label: 'Suppliers', page: 'SUPPLIERS' },
     { path: '/stock-movements', icon: <MdSwapVert size={20} />, label: 'Stock Movements', page: 'STOCK_MOVEMENTS' },
+    { path: '/stock-transfer', icon: <MdSwapHoriz size={20} />, label: 'Stock Transfer', page: 'STOCK_TRANSFER' },
     { path: '/debts', icon: <MdAccountBalance size={20} />, label: 'Debts', page: 'DEBTS' }, // ← add this
     { path: '/settings', icon: <MdSettings size={20} />, label: 'Settings', page: 'SETTINGS' },
     { path: '/sales-report', icon: <MdAssessment size={20} />, label: 'Sales Report', page: 'SALES_REPORT' },

@@ -20,6 +20,8 @@ function Products() {
   const [editProduct, setEditProduct] = useState(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [confirmAction, setConfirmAction] = useState(null)
+  const [locations, setLocations] = useState([])
+  const [stockByLocation, setStockByLocation] = useState([])
   const [form, setForm] = useState({
     name: '', category: '', unit: '',
     buyingPrice: '', sellingPrice: '',
@@ -40,7 +42,13 @@ function Products() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchProducts() }, [])
+  useEffect(() => {
+    fetchProducts()
+    api.get(`/stock-locations/shop/${shopId}`)
+      .then(res => setLocations(res.data || []))
+    api.get(`/stock-locations/shop/${shopId}/stock`)
+      .then(res => setStockByLocation(res.data || []))
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => fetchProducts(0, search, pageSize), 400)
@@ -52,6 +60,11 @@ function Products() {
     if (statusFilter === 'INACTIVE') return p.active === false
     return true
   })
+
+  // Get stock for a product per location
+  const getStockPerLocation = (productId) => {
+    return stockByLocation.filter(ps => ps.product?.id === productId)
+  }
 
   const openAdd = () => {
     setEditProduct(null)
@@ -72,6 +85,8 @@ function Products() {
       setShowModal(false)
       setEditProduct(null)
       fetchProducts(page, search, pageSize)
+      api.get(`/stock-locations/shop/${shopId}/stock`)
+        .then(res => setStockByLocation(res.data || []))
     } catch (err) {
       console.error(err)
     } finally {
@@ -134,6 +149,8 @@ function Products() {
     { label: 'Barcode', key: 'barcode' },
   ]
 
+  const hasMultipleLocations = locations.length > 1
+
   return (
     <Layout>
       {/* Header */}
@@ -191,7 +208,12 @@ function Products() {
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Product', 'Category', 'Unit', 'Buying Price', 'Selling Price', 'Stock', 'Status', 'Actions'].map(h => (
+              {[
+                'Product', 'Category', 'Unit', 'Buying Price', 'Selling Price',
+                ...(hasMultipleLocations ? locations.map(l => l.name) : ['Stock']),
+                ...(hasMultipleLocations ? ['Total'] : []),
+                'Status', 'Actions'
+              ].map(h => (
                 <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
                   style={{ color: '#94a3b8' }}>{h}</th>
               ))}
@@ -199,18 +221,19 @@ function Products() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="8" className="text-center py-16">
+              <tr><td colSpan={hasMultipleLocations ? 8 + locations.length : 8} className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading products...</p>
               </td></tr>
             ) : filteredProducts.length === 0 ? (
-              <tr><td colSpan="8" className="text-center py-16">
+              <tr><td colSpan={hasMultipleLocations ? 8 + locations.length : 8} className="text-center py-16">
                 <MdInventory size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No products found</p>
               </td></tr>
             ) : (
               filteredProducts.map((product, i) => {
                 const isInactive = product.active === false
+                const stockPerLoc = getStockPerLocation(product.id)
                 return (
                   <tr key={product.id}
                     style={{
@@ -244,15 +267,47 @@ function Products() {
                     <td className="px-5 py-3.5 text-sm font-semibold" style={{ color: '#0f172a' }}>
                       RWF {product.sellingPrice?.toLocaleString()}
                     </td>
-                    <td className="px-5 py-3.5">
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                        style={{
-                          background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
-                          color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
-                        }}>
-                        {product.quantity} {product.unit || ''}
-                      </span>
-                    </td>
+
+                    {/* Stock columns — per location if multiple, single if one */}
+                    {hasMultipleLocations ? (
+                      <>
+                        {locations.map(loc => {
+                          const ps = stockPerLoc.find(s => s.location?.id === loc.id)
+                          const qty = ps ? ps.quantity : 0
+                          return (
+                            <td key={loc.id} className="px-5 py-3.5">
+                              <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                                style={{
+                                  background: qty <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                                  color: qty <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                                }}>
+                                {qty} {product.unit || ''}
+                              </span>
+                            </td>
+                          )
+                        })}
+                        <td className="px-5 py-3.5">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                            style={{
+                              background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#eff6ff',
+                              color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#3b82f6'
+                            }}>
+                            {product.quantity} {product.unit || ''}
+                          </span>
+                        </td>
+                      </>
+                    ) : (
+                      <td className="px-5 py-3.5">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                          style={{
+                            background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                            color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                          }}>
+                          {product.quantity} {product.unit || ''}
+                        </span>
+                      </td>
+                    )}
+
                     <td className="px-5 py-3.5">
                       <span className="px-2.5 py-1 rounded-full text-xs font-bold"
                         style={{
@@ -265,20 +320,17 @@ function Products() {
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <button onClick={() => handleEdit(product)}
-                          className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}
-                          title="Edit">
+                          className="p-1.5 rounded-lg" style={{ color: '#3b82f6', background: '#eff6ff' }}>
                           <MdEdit size={16} />
                         </button>
                         {isInactive ? (
                           <button onClick={() => handleReactivate(product)}
-                            className="p-1.5 rounded-lg" style={{ color: '#16a34a', background: '#f0fdf4' }}
-                            title="Reactivate">
+                            className="p-1.5 rounded-lg" style={{ color: '#16a34a', background: '#f0fdf4' }}>
                             <MdCheckCircle size={16} />
                           </button>
                         ) : (
                           <button onClick={() => handleDeactivate(product)}
-                            className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}
-                            title="Deactivate">
+                            className="p-1.5 rounded-lg" style={{ color: '#ef4444', background: '#fef2f2' }}>
                             <MdBlock size={16} />
                           </button>
                         )}
@@ -307,6 +359,7 @@ function Products() {
         ) : (
           filteredProducts.map(product => {
             const isInactive = product.active === false
+            const stockPerLoc = getStockPerLocation(product.id)
             return (
               <div key={product.id} className="bg-white rounded-xl p-4"
                 style={{
@@ -357,7 +410,9 @@ function Products() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
+
+                {/* Prices */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Buying</p>
                     <p className="text-xs font-semibold" style={{ color: '#64748b' }}>
@@ -370,16 +425,51 @@ function Products() {
                       RWF {product.sellingPrice?.toLocaleString()}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Stock</p>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                      style={{
-                        background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
-                        color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
-                      }}>
-                      {product.quantity} {product.unit || ''}
-                    </span>
-                  </div>
+                </div>
+
+                {/* Stock per location */}
+                <div className="pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
+                  {hasMultipleLocations ? (
+                    <div className="space-y-1">
+                      {locations.map(loc => {
+                        const ps = stockPerLoc.find(s => s.location?.id === loc.id)
+                        const qty = ps ? ps.quantity : 0
+                        return (
+                          <div key={loc.id} className="flex items-center justify-between">
+                            <p className="text-xs" style={{ color: '#64748b' }}>
+                              {loc.isMain ? '🏪' : '🏭'} {loc.name}
+                            </p>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{
+                                background: qty <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                                color: qty <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                              }}>
+                              {qty} {product.unit || ''}
+                            </span>
+                          </div>
+                        )
+                      })}
+                      <div className="flex items-center justify-between pt-1"
+                        style={{ borderTop: '1px solid #f1f5f9' }}>
+                        <p className="text-xs font-semibold" style={{ color: '#64748b' }}>Total</p>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                          {product.quantity} {product.unit || ''}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Stock</p>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: product.quantity <= (product.minStock || 0) ? '#fef2f2' : '#f0fdf4',
+                          color: product.quantity <= (product.minStock || 0) ? '#ef4444' : '#16a34a'
+                        }}>
+                        {product.quantity} {product.unit || ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -449,19 +539,16 @@ function Products() {
         </div>
       )}
 
-      {/* CONFIRM DEACTIVATE/REACTIVATE MODAL */}
+      {/* CONFIRM MODAL */}
       {showConfirmModal && confirmAction && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
-
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
             <div className="px-6 py-6 text-center">
-              {/* Icon */}
               <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
                 style={{
                   background: confirmAction.type === 'error' ? '#fef3c7' :
@@ -472,14 +559,10 @@ function Products() {
                    confirmAction.type === 'deactivate' ? '🚫' : '✅'}
                 </span>
               </div>
-
-              {/* Title */}
               <h2 className="text-lg font-bold mb-2" style={{ color: '#0f172a' }}>
                 {confirmAction.type === 'error' ? 'Cannot Deactivate' :
                  confirmAction.type === 'deactivate' ? 'Deactivate Product' : 'Reactivate Product'}
               </h2>
-
-              {/* Product name badge */}
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl mb-3"
                 style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                 <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold"
@@ -490,8 +573,6 @@ function Products() {
                   {confirmAction.product.name}
                 </span>
               </div>
-
-              {/* Message */}
               <p className="text-sm mb-1" style={{ color: '#64748b' }}>
                 {confirmAction.type === 'error' ?
                   `This product still has ${confirmAction.product.quantity} units in stock.` :
@@ -510,8 +591,6 @@ function Products() {
                 </p>
               )}
             </div>
-
-            {/* Buttons */}
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               {confirmAction.type === 'error' ? (
                 <button onClick={() => { setShowConfirmModal(false); setConfirmAction(null) }}

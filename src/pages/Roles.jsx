@@ -19,6 +19,7 @@ const ALL_PAGES = [
   { key: 'CASH_DESK_REPORT', label: '💰 Cash Desk Report' },
   { key: 'USERS', label: '👥 Users' },
   { key: 'ROLES', label: '🔐 Roles' },
+  { key: 'STOCK_TRANSFER', label: '🔄 Stock Transfer' },
 ]
 
 function Roles() {

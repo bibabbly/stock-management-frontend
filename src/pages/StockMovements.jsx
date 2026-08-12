@@ -33,7 +33,6 @@ function ProductSearch({ products, value, onChange }) {
         </span>
         <MdSearch size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
       </div>
-
       {open && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl shadow-lg overflow-hidden"
           style={{ border: '1px solid #e2e8f0', maxHeight: '260px' }}>
@@ -88,15 +87,18 @@ function ProductSearch({ products, value, onChange }) {
 
 function StockMovements() {
   const { shopId, userId } = useAuth()
+  const [activeTab, setActiveTab] = useState('ALL') // ALL, IN, OUT, BALANCE
   const [movements, setMovements] = useState([])
   const [activeProducts, setActiveProducts] = useState([])
   const [suppliers, setSuppliers] = useState([])
+  const [locations, setLocations] = useState([])
+  const [stockBalance, setStockBalance] = useState([])
   const [loading, setLoading] = useState(true)
+  const [balanceLoading, setBalanceLoading] = useState(false)
   const [showRestockModal, setShowRestockModal] = useState(false)
   const [showStockOutModal, setShowStockOutModal] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [filter, setFilter] = useState('ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -109,7 +111,8 @@ function StockMovements() {
 
   const fetchMovements = (pageNum = 0, type = 'ALL', searchVal = '', size = 20) => {
     setLoading(true)
-    api.get(`/stock-movements/shop/${shopId}?page=${pageNum}&size=${size}&type=${type}&search=${searchVal}`)
+    const typeParam = type === 'BALANCE' ? 'ALL' : type
+    api.get(`/stock-movements/shop/${shopId}?page=${pageNum}&size=${size}&type=${typeParam}&search=${searchVal}`)
       .then(res => {
         setMovements(res.data.content || [])
         setTotalPages(res.data.totalPages || 0)
@@ -119,6 +122,14 @@ function StockMovements() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false))
+  }
+
+  const fetchBalance = () => {
+    setBalanceLoading(true)
+    api.get(`/stock-locations/shop/${shopId}/stock`)
+      .then(res => setStockBalance(res.data || []))
+      .catch(err => console.error(err))
+      .finally(() => setBalanceLoading(false))
   }
 
   const fetchSummary = () => {
@@ -131,19 +142,26 @@ function StockMovements() {
   useEffect(() => {
     fetchMovements(0, 'ALL', '', 20)
     fetchSummary()
-    // Only fetch ACTIVE products for restock and stock out
+    fetchBalance()
     api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
     api.get(`/suppliers/shop/${shopId}/all`).then(res => setSuppliers(res.data))
+    api.get(`/stock-locations/shop/${shopId}`).then(res => setLocations(res.data || []))
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchMovements(0, filter, search, pageSize), 400)
+    const timer = setTimeout(() => {
+      if (activeTab !== 'BALANCE') fetchMovements(0, activeTab, search, pageSize)
+    }, 400)
     return () => clearTimeout(timer)
   }, [search])
 
-  const handleFilterChange = (newFilter) => {
-    setFilter(newFilter)
-    fetchMovements(0, newFilter, search, pageSize)
+  const handleTabChange = (tab) => {
+    setActiveTab(tab)
+    if (tab === 'BALANCE') {
+      fetchBalance()
+    } else {
+      fetchMovements(0, tab, search, pageSize)
+    }
   }
 
   const handleRestock = async () => {
@@ -160,9 +178,9 @@ function StockMovements() {
       })
       setShowRestockModal(false)
       setRestockForm({ productId: '', supplierId: '', quantity: 1, note: '' })
-      fetchMovements(0, filter, search, pageSize)
+      fetchMovements(0, activeTab === 'BALANCE' ? 'ALL' : activeTab, search, pageSize)
       fetchSummary()
-      // Refresh active products
+      fetchBalance()
       api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
     } catch (err) {
       setError('Failed to restock. Please check all fields.')
@@ -188,9 +206,9 @@ function StockMovements() {
       })
       setShowStockOutModal(false)
       setStockOutForm({ productId: '', quantity: 1, reason: '' })
-      fetchMovements(0, filter, search, pageSize)
+      fetchMovements(0, activeTab === 'BALANCE' ? 'ALL' : activeTab, search, pageSize)
       fetchSummary()
-      // Refresh active products (some may be auto-deactivated)
+      fetchBalance()
       api.get(`/products/shop/${shopId}/active`).then(res => setActiveProducts(res.data || []))
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to record stock out')
@@ -198,6 +216,18 @@ function StockMovements() {
       setSubmitting(false)
     }
   }
+
+  // Group stock balance by product
+  const balanceByProduct = stockBalance.reduce((acc, ps) => {
+    const productId = ps.product?.id
+    if (!acc[productId]) {
+      acc[productId] = { product: ps.product, locations: [] }
+    }
+    acc[productId].locations.push({ location: ps.location, quantity: ps.quantity })
+    return acc
+  }, {})
+
+  const hasMultipleLocations = locations.length > 1
 
   return (
     <Layout>
@@ -208,7 +238,6 @@ function StockMovements() {
           <p className="text-xs" style={{ color: '#94a3b8' }}>{totalElements} total movements</p>
         </div>
         <div className="flex gap-2">
-          {/* Stock Out button */}
           <button onClick={() => { setShowStockOutModal(true); setError('') }}
             className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
             style={{ background: 'linear-gradient(135deg, #ef4444, #f87171)', boxShadow: '0 4px 12px rgba(239,68,68,0.3)' }}>
@@ -216,7 +245,6 @@ function StockMovements() {
             <span className="hidden sm:inline">Stock Out</span>
             <span className="sm:hidden">Out</span>
           </button>
-          {/* Restock button */}
           <button onClick={() => { setShowRestockModal(true); setError('') }}
             className="flex items-center gap-1.5 text-white px-3 py-2.5 rounded-xl text-sm font-semibold"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
@@ -253,84 +281,296 @@ function StockMovements() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
-        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <MdSearch size={20} style={{ color: '#94a3b8' }} />
-        <input type="text" placeholder="Search by product name..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          className="flex-1 text-sm focus:outline-none" style={{ color: '#0f172a' }} />
-        {search && (
-          <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
-            <MdClose size={18} />
-          </button>
-        )}
-      </div>
+      {/* Search — hidden on balance tab */}
+      {activeTab !== 'BALANCE' && (
+        <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
+          style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <MdSearch size={20} style={{ color: '#94a3b8' }} />
+          <input type="text" placeholder="Search by product name..."
+            value={search} onChange={e => setSearch(e.target.value)}
+            className="flex-1 text-sm focus:outline-none" style={{ color: '#0f172a' }} />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
+              <MdClose size={18} />
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* Filter Tabs */}
+      {/* Tabs */}
       <div className="flex gap-2 mb-4">
-        {['ALL', 'IN', 'OUT'].map(tab => (
-          <button key={tab} onClick={() => handleFilterChange(tab)}
+        {[
+          { key: 'ALL', label: '📋 All' },
+          { key: 'IN', label: '📥 In' },
+          { key: 'OUT', label: '📤 Out' },
+          { key: 'BALANCE', label: '⚖️ Balance' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => handleTabChange(tab.key)}
             className="flex-1 sm:flex-none px-3 py-2 rounded-xl text-xs font-semibold transition-all"
             style={{
-              background: filter === tab ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
-              color: filter === tab ? 'white' : '#64748b',
-              border: filter === tab ? 'none' : '1px solid #f1f5f9',
-              boxShadow: filter === tab ? '0 4px 12px rgba(59,130,246,0.3)' : '0 1px 3px rgba(0,0,0,0.06)'
+              background: activeTab === tab.key ? 'linear-gradient(135deg, #3b82f6, #06b6d4)' : 'white',
+              color: activeTab === tab.key ? 'white' : '#64748b',
+              border: activeTab === tab.key ? 'none' : '1px solid #f1f5f9',
+              boxShadow: activeTab === tab.key ? '0 4px 12px rgba(59,130,246,0.3)' : '0 1px 3px rgba(0,0,0,0.06)'
             }}>
-            {tab === 'ALL' ? '📋 All' : tab === 'IN' ? '📥 In' : '📤 Out'}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* DESKTOP TABLE */}
-      <div className="hidden md:block bg-white rounded-xl overflow-hidden"
-        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-              {['Date & Time', 'Product', 'Type', 'Quantity', 'Note'].map(h => (
-                <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: '#94a3b8' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
+      {/* BALANCE TAB */}
+      {activeTab === 'BALANCE' && (
+        <>
+          {balanceLoading ? (
+            <div className="text-center py-16">
+              <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
+              <p style={{ color: '#94a3b8' }}>Loading balance...</p>
+            </div>
+          ) : (
+            <>
+              {/* DESKTOP BALANCE TABLE */}
+              <div className="hidden md:block bg-white rounded-xl overflow-hidden"
+                style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                      <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                        style={{ color: '#94a3b8' }}>Product</th>
+                      {hasMultipleLocations
+                        ? locations.map(loc => (
+                            <th key={loc.id} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                              style={{ color: '#94a3b8' }}>
+                              {loc.isMain ? '🏪' : '🏭'} {loc.name}
+                            </th>
+                          ))
+                        : <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                            style={{ color: '#94a3b8' }}>Stock</th>
+                      }
+                      {hasMultipleLocations && (
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                          style={{ color: '#94a3b8' }}>Total</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.values(balanceByProduct).length === 0 ? (
+                      <tr><td colSpan={hasMultipleLocations ? locations.length + 2 : 2} className="text-center py-16">
+                        <p style={{ color: '#94a3b8' }}>No stock data found</p>
+                      </td></tr>
+                    ) : (
+                      Object.values(balanceByProduct).map((item, i) => {
+                        const total = item.locations.reduce((sum, l) => sum + l.quantity, 0)
+                        return (
+                          <tr key={item.product?.id}
+                            style={{ borderBottom: '1px solid #f8fafc' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                                  style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                                  {item.product?.name?.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{item.product?.name}</p>
+                                  <p className="text-xs" style={{ color: '#94a3b8' }}>{item.product?.category}</p>
+                                </div>
+                              </div>
+                            </td>
+                            {hasMultipleLocations ? (
+                              <>
+                                {locations.map(loc => {
+                                  const locStock = item.locations.find(l => l.location?.id === loc.id)
+                                  const qty = locStock ? locStock.quantity : 0
+                                  return (
+                                    <td key={loc.id} className="px-5 py-3.5">
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                                        style={{
+                                          background: qty <= 0 ? '#fef2f2' : qty <= 5 ? '#fef3c7' : '#f0fdf4',
+                                          color: qty <= 0 ? '#ef4444' : qty <= 5 ? '#d97706' : '#16a34a'
+                                        }}>
+                                        {qty} {item.product?.unit || ''}
+                                      </span>
+                                    </td>
+                                  )
+                                })}
+                                <td className="px-5 py-3.5">
+                                  <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                                    style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                                    {total} {item.product?.unit || ''}
+                                  </span>
+                                </td>
+                              </>
+                            ) : (
+                              <td className="px-5 py-3.5">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                                  style={{
+                                    background: total <= 0 ? '#fef2f2' : total <= 5 ? '#fef3c7' : '#f0fdf4',
+                                    color: total <= 0 ? '#ef4444' : total <= 5 ? '#d97706' : '#16a34a'
+                                  }}>
+                                  {total} {item.product?.unit || ''}
+                                </span>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE BALANCE CARDS */}
+              <div className="md:hidden space-y-3">
+                {Object.values(balanceByProduct).map(item => {
+                  const total = item.locations.reduce((sum, l) => sum + l.quantity, 0)
+                  return (
+                    <div key={item.product?.id} className="bg-white rounded-xl p-4"
+                      style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                          {item.product?.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{item.product?.name}</p>
+                          <p className="text-xs" style={{ color: '#94a3b8' }}>{item.product?.category}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
+                        {item.locations.map(l => (
+                          <div key={l.location?.id} className="flex items-center justify-between">
+                            <p className="text-xs" style={{ color: '#64748b' }}>
+                              {l.location?.isMain ? '🏪' : '🏭'} {l.location?.name}
+                            </p>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{
+                                background: l.quantity <= 0 ? '#fef2f2' : l.quantity <= 5 ? '#fef3c7' : '#f0fdf4',
+                                color: l.quantity <= 0 ? '#ef4444' : l.quantity <= 5 ? '#d97706' : '#16a34a'
+                              }}>
+                              {l.quantity} {item.product?.unit || ''}
+                            </span>
+                          </div>
+                        ))}
+                        {hasMultipleLocations && (
+                          <div className="flex items-center justify-between pt-1"
+                            style={{ borderTop: '1px solid #f1f5f9' }}>
+                            <p className="text-xs font-semibold" style={{ color: '#64748b' }}>Total</p>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: '#eff6ff', color: '#3b82f6' }}>
+                              {total} {item.product?.unit || ''}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* MOVEMENTS TABLE — shown for ALL, IN, OUT tabs */}
+      {activeTab !== 'BALANCE' && (
+        <>
+          {/* DESKTOP TABLE */}
+          <div className="hidden md:block bg-white rounded-xl overflow-hidden"
+            style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                  {['Date & Time', 'Product', 'Type', 'Quantity', 'Note'].map(h => (
+                    <th key={h} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: '#94a3b8' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="5" className="text-center py-16">
+                    <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
+                    <p style={{ color: '#94a3b8' }}>Loading movements...</p>
+                  </td></tr>
+                ) : movements.length === 0 ? (
+                  <tr><td colSpan="5" className="text-center py-16">
+                    <MdSwapVert size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
+                    <p style={{ color: '#94a3b8' }}>No movements found</p>
+                  </td></tr>
+                ) : (
+                  movements.map((movement, i) => (
+                    <tr key={movement.id}
+                      style={{ borderBottom: i < movements.length - 1 ? '1px solid #f8fafc' : 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                      <td className="px-5 py-3.5">
+                        <p className="font-medium text-sm" style={{ color: '#0f172a' }}>
+                          {new Date(movement.createdAt).toLocaleDateString()}
+                        </p>
+                        <p className="text-xs" style={{ color: '#94a3b8' }}>
+                          {new Date(movement.createdAt).toLocaleTimeString()}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
+                            {movement.product?.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-semibold" style={{ color: '#0f172a' }}>{movement.product?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit"
+                          style={{
+                            background: movement.type === 'IN' ? '#f0fdf4' : '#fef2f2',
+                            color: movement.type === 'IN' ? '#16a34a' : '#ef4444'
+                          }}>
+                          {movement.type === 'IN' ? <MdArrowDownward size={12} /> : <MdArrowUpward size={12} />}
+                          {movement.type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="font-bold text-lg" style={{ color: '#0f172a' }}>
+                          {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>
+                        {movement.note || <span style={{ color: '#cbd5e1' }}>—</span>}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* MOBILE CARDS */}
+          <div className="md:hidden space-y-3">
             {loading ? (
-              <tr><td colSpan="5" className="text-center py-16">
+              <div className="text-center py-16">
                 <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
                 <p style={{ color: '#94a3b8' }}>Loading movements...</p>
-              </td></tr>
+              </div>
             ) : movements.length === 0 ? (
-              <tr><td colSpan="5" className="text-center py-16">
+              <div className="text-center py-16">
                 <MdSwapVert size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
                 <p style={{ color: '#94a3b8' }}>No movements found</p>
-              </td></tr>
+              </div>
             ) : (
-              movements.map((movement, i) => (
-                <tr key={movement.id}
-                  style={{ borderBottom: i < movements.length - 1 ? '1px solid #f8fafc' : 'none' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                  <td className="px-5 py-3.5">
-                    <p className="font-medium text-sm" style={{ color: '#0f172a' }}>
-                      {new Date(movement.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="text-xs" style={{ color: '#94a3b8' }}>
-                      {new Date(movement.createdAt).toLocaleTimeString()}
-                    </p>
-                  </td>
-                  <td className="px-5 py-3.5">
+              movements.map(movement => (
+                <div key={movement.id} className="bg-white rounded-xl p-4"
+                  style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                         style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
                         {movement.product?.name?.charAt(0).toUpperCase()}
                       </div>
-                      <span className="font-semibold" style={{ color: '#0f172a' }}>{movement.product?.name}</span>
+                      <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{movement.product?.name}</p>
                     </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit"
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
                       style={{
                         background: movement.type === 'IN' ? '#f0fdf4' : '#fef2f2',
                         color: movement.type === 'IN' ? '#16a34a' : '#ef4444'
@@ -338,83 +578,38 @@ function StockMovements() {
                       {movement.type === 'IN' ? <MdArrowDownward size={12} /> : <MdArrowUpward size={12} />}
                       {movement.type}
                     </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="font-bold text-lg" style={{ color: '#0f172a' }}>
-                      {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm" style={{ color: '#64748b' }}>
-                    {movement.note || <span style={{ color: '#cbd5e1' }}>—</span>}
-                  </td>
-                </tr>
+                  </div>
+                  <div className="flex items-center justify-between pt-3"
+                    style={{ borderTop: '1px solid #f8fafc' }}>
+                    <div>
+                      <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Quantity</p>
+                      <p className="text-lg font-bold" style={{ color: '#0f172a' }}>
+                        {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-medium" style={{ color: '#0f172a' }}>
+                        {new Date(movement.createdAt).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>
+                        {new Date(movement.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      {movement.note && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{movement.note}</p>}
+                    </div>
+                  </div>
+                </div>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* MOBILE CARDS */}
-      <div className="md:hidden space-y-3">
-        {loading ? (
-          <div className="text-center py-16">
-            <div className="w-8 h-8 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mx-auto mb-2" />
-            <p style={{ color: '#94a3b8' }}>Loading movements...</p>
           </div>
-        ) : movements.length === 0 ? (
-          <div className="text-center py-16">
-            <MdSwapVert size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-            <p style={{ color: '#94a3b8' }}>No movements found</p>
-          </div>
-        ) : (
-          movements.map(movement => (
-            <div key={movement.id} className="bg-white rounded-xl p-4"
-              style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-                    {movement.product?.name?.charAt(0).toUpperCase()}
-                  </div>
-                  <p className="font-semibold text-sm" style={{ color: '#0f172a' }}>{movement.product?.name}</p>
-                </div>
-                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold"
-                  style={{
-                    background: movement.type === 'IN' ? '#f0fdf4' : '#fef2f2',
-                    color: movement.type === 'IN' ? '#16a34a' : '#ef4444'
-                  }}>
-                  {movement.type === 'IN' ? <MdArrowDownward size={12} /> : <MdArrowUpward size={12} />}
-                  {movement.type}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
-                <div>
-                  <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Quantity</p>
-                  <p className="text-lg font-bold" style={{ color: '#0f172a' }}>
-                    {movement.type === 'IN' ? '+' : '-'}{movement.quantity}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-medium" style={{ color: '#0f172a' }}>
-                    {new Date(movement.createdAt).toLocaleDateString()}
-                  </p>
-                  <p className="text-xs" style={{ color: '#94a3b8' }}>
-                    {new Date(movement.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  {movement.note && <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>{movement.note}</p>}
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
 
-      <Pagination
-        page={page} totalPages={totalPages} totalElements={totalElements}
-        pageSize={pageSize}
-        onPageChange={(p) => fetchMovements(p, filter, search, pageSize)}
-        onPageSizeChange={(s) => fetchMovements(0, filter, search, s)}
-      />
+          <Pagination
+            page={page} totalPages={totalPages} totalElements={totalElements}
+            pageSize={pageSize}
+            onPageChange={(p) => fetchMovements(p, activeTab, search, pageSize)}
+            onPageSizeChange={(s) => fetchMovements(0, activeTab, search, s)}
+          />
+        </>
+      )}
 
       {/* RESTOCK MODAL */}
       {showRestockModal && (
@@ -504,7 +699,7 @@ function StockMovements() {
         </div>
       )}
 
-      {/* MANUAL STOCK OUT MODAL */}
+      {/* STOCK OUT MODAL */}
       {showStockOutModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
@@ -526,19 +721,15 @@ function StockMovements() {
             </div>
             <div className="px-5 py-4 space-y-4">
               {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
-
-              {/* Warning */}
               <div className="rounded-xl p-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
                 <p className="text-xs font-semibold" style={{ color: '#d97706' }}>⚠️ This will reduce stock permanently</p>
                 <p className="text-xs mt-1" style={{ color: '#92400e' }}>Use for: stolen goods, expired items, damaged stock</p>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <ProductSearch products={activeProducts} value={stockOutForm.productId}
                   onChange={(val) => setStockOutForm({ ...stockOutForm, productId: val })} />
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -549,14 +740,13 @@ function StockMovements() {
                     onChange={e => setStockOutForm({ ...stockOutForm, quantity: e.target.value })}
                     className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none text-center font-bold"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
-                    onFocus={e => e.target.style.borderColor = '#ef4444'}
+                    onFocus={e => { e.target.select(); e.target.style.borderColor = '#ef4444' }}
                     onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
                   <button onClick={() => setStockOutForm({ ...stockOutForm, quantity: parseInt(stockOutForm.quantity || 1) + 1 })}
                     className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-xl flex-shrink-0"
                     style={{ background: '#ef4444', color: 'white' }}>+</button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   Reason <span style={{ color: '#ef4444' }}>*</span>
@@ -568,7 +758,6 @@ function StockMovements() {
                   onFocus={e => e.target.style.borderColor = '#ef4444'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}
                   placeholder="e.g. Stolen, Expired, Damaged" />
-                {/* Quick reason buttons */}
                 <div className="flex flex-wrap gap-2 mt-2">
                   {['Stolen', 'Expired', 'Damaged', 'Lost', 'Inventory adjustment'].map(r => (
                     <button key={r} onClick={() => setStockOutForm({ ...stockOutForm, reason: r })}
