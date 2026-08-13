@@ -87,7 +87,7 @@ function ProductSearch({ products, value, onChange }) {
 
 function StockMovements() {
   const { shopId, userId } = useAuth()
-  const [activeTab, setActiveTab] = useState('ALL') // ALL, IN, OUT, BALANCE
+  const [activeTab, setActiveTab] = useState('ALL')
   const [movements, setMovements] = useState([])
   const [activeProducts, setActiveProducts] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -106,8 +106,12 @@ function StockMovements() {
   const [pageSize, setPageSize] = useState(20)
   const [totalIn, setTotalIn] = useState(0)
   const [totalOut, setTotalOut] = useState(0)
-  const [restockForm, setRestockForm] = useState({ productId: '', supplierId: '', quantity: 1, note: '' })
-  const [stockOutForm, setStockOutForm] = useState({ productId: '', quantity: 1, reason: '' })
+  const [restockForm, setRestockForm] = useState({
+    productId: '', supplierId: '', quantity: 1, note: '', locationId: ''
+  })
+  const [stockOutForm, setStockOutForm] = useState({
+    productId: '', quantity: 1, reason: ''
+  })
 
   const fetchMovements = (pageNum = 0, type = 'ALL', searchVal = '', size = 20) => {
     setLoading(true)
@@ -166,6 +170,10 @@ function StockMovements() {
 
   const handleRestock = async () => {
     if (submitting) return
+    if (locations.length > 1 && !restockForm.locationId) {
+      setError('Please select a location to save stock')
+      return
+    }
     setError('')
     setSubmitting(true)
     try {
@@ -174,10 +182,11 @@ function StockMovements() {
         productId: parseInt(restockForm.productId),
         supplierId: restockForm.supplierId ? parseInt(restockForm.supplierId) : null,
         quantity: parseInt(restockForm.quantity),
-        note: restockForm.note || 'Restock'
+        note: restockForm.note || 'Restock',
+        locationId: restockForm.locationId ? parseInt(restockForm.locationId) : null
       })
       setShowRestockModal(false)
-      setRestockForm({ productId: '', supplierId: '', quantity: 1, note: '' })
+      setRestockForm({ productId: '', supplierId: '', quantity: 1, note: '', locationId: '' })
       fetchMovements(0, activeTab === 'BALANCE' ? 'ALL' : activeTab, search, pageSize)
       fetchSummary()
       fetchBalance()
@@ -217,7 +226,6 @@ function StockMovements() {
     }
   }
 
-  // Group stock balance by product
   const balanceByProduct = stockBalance.reduce((acc, ps) => {
     const productId = ps.product?.id
     if (!acc[productId]) {
@@ -281,7 +289,7 @@ function StockMovements() {
         </div>
       </div>
 
-      {/* Search — hidden on balance tab */}
+      {/* Search */}
       {activeTab !== 'BALANCE' && (
         <div className="bg-white rounded-xl px-4 py-3 mb-4 flex items-center gap-3"
           style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -338,13 +346,13 @@ function StockMovements() {
                         style={{ color: '#94a3b8' }}>Product</th>
                       {hasMultipleLocations
                         ? locations.map(loc => (
-                            <th key={loc.id} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                              style={{ color: '#94a3b8' }}>
-                              {loc.isMain ? '🏪' : '🏭'} {loc.name}
-                            </th>
-                          ))
+                          <th key={loc.id} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                            style={{ color: '#94a3b8' }}>
+                            {loc.isMain ? '🏪' : '🏭'} {loc.name}
+                          </th>
+                        ))
                         : <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
-                            style={{ color: '#94a3b8' }}>Stock</th>
+                          style={{ color: '#94a3b8' }}>Stock</th>
                       }
                       {hasMultipleLocations && (
                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
@@ -358,7 +366,7 @@ function StockMovements() {
                         <p style={{ color: '#94a3b8' }}>No stock data found</p>
                       </td></tr>
                     ) : (
-                      Object.values(balanceByProduct).map((item, i) => {
+                      Object.values(balanceByProduct).map((item) => {
                         const total = item.locations.reduce((sum, l) => sum + l.quantity, 0)
                         return (
                           <tr key={item.product?.id}
@@ -472,10 +480,9 @@ function StockMovements() {
         </>
       )}
 
-      {/* MOVEMENTS TABLE — shown for ALL, IN, OUT tabs */}
+      {/* MOVEMENTS — ALL, IN, OUT tabs */}
       {activeTab !== 'BALANCE' && (
         <>
-          {/* DESKTOP TABLE */}
           <div className="hidden md:block bg-white rounded-xl overflow-hidden"
             style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
             <table className="w-full text-sm">
@@ -633,11 +640,15 @@ function StockMovements() {
             </div>
             <div className="px-5 py-4 space-y-4">
               {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+
+              {/* Product */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <ProductSearch products={activeProducts} value={restockForm.productId}
                   onChange={(val) => setRestockForm({ ...restockForm, productId: val })} />
               </div>
+
+              {/* Supplier */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   Supplier <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
@@ -652,6 +663,30 @@ function StockMovements() {
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
+
+              {/* Location selector — only show if multiple locations */}
+              {locations.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+                    Save Stock To <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select value={restockForm.locationId}
+                    onChange={e => setRestockForm({ ...restockForm, locationId: e.target.value })}
+                    className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+                    style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                    onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
+                    <option value="">Select location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.isMain ? '🏪' : '🏭'} {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Quantity */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -669,6 +704,8 @@ function StockMovements() {
                     style={{ background: '#3b82f6', color: 'white' }}>+</button>
                 </div>
               </div>
+
+              {/* Note */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
                 <input type="text" value={restockForm.note}
