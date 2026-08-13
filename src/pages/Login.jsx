@@ -124,11 +124,11 @@ function Login() {
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', filter: 'blur(80px)', transform: 'translate(40%, 40%)' }} />
         </div>
 
-        <div className="relative z-10 flex items-center gap-3">
-          <LogoMark size={40} />
+        <div className="relative z-10 flex items-center gap-4">
+          <LogoMark size={72} />
           <div>
-            <h1 className="font-bold text-white text-lg leading-tight">BizTrack</h1>
-            <p className="text-xs" style={{ color: '#475569' }}>by INNOTEWO</p>
+            <h1 className="font-bold text-white text-xl leading-tight">BizTrack</h1>
+            <p className="text-sm" style={{ color: '#475569' }}>by INNOTEWO</p>
           </div>
         </div>
 
