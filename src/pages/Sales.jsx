@@ -6,6 +6,22 @@ import { MdAdd, MdClose, MdPointOfSale, MdPrint, MdSearch, MdCancel } from 'reac
 import Receipt from '../components/Receipt'
 import Pagination from '../components/Pagination'
 
+// Build products with main location stock
+function buildProductsWithMainStock(activeProducts, stockByLocation, locations) {
+  const mainLocation = locations.find(l => l.isMain)
+  if (!mainLocation) return activeProducts
+
+  return activeProducts.map(product => {
+    const mainStock = stockByLocation.find(
+      ps => ps.product?.id === product.id && ps.location?.id === mainLocation.id
+    )
+    return {
+      ...product,
+      mainQuantity: mainStock ? mainStock.quantity : 0
+    }
+  })
+}
+
 function ProductSearch({ products, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -24,13 +40,17 @@ function ProductSearch({ products, value, onChange }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const displayQty = (p) => p.mainQuantity !== undefined ? p.mainQuantity : p.quantity
+
   return (
     <div ref={ref} className="relative flex-1">
       <div onClick={() => setOpen(!open)}
         className="w-full rounded-xl px-3 py-2.5 text-sm cursor-pointer flex items-center justify-between"
         style={{ border: '2px solid #f1f5f9', background: 'white', color: selected ? '#0f172a' : '#94a3b8', minHeight: '44px' }}>
         <span className="truncate">
-          {selected ? `${selected.name} (×${selected.quantity}) — RWF ${selected.sellingPrice?.toLocaleString()}` : 'Select product'}
+          {selected
+            ? `${selected.name} (×${displayQty(selected)}) — RWF ${selected.sellingPrice?.toLocaleString()}`
+            : 'Select product'}
         </span>
         <MdSearch size={16} style={{ color: '#94a3b8', flexShrink: 0 }} />
       </div>
@@ -54,25 +74,37 @@ function ProductSearch({ products, value, onChange }) {
               )}
             </div>
           </div>
+
           <div style={{ overflowY: 'auto', maxHeight: '200px' }}>
             {filtered.length === 0 ? (
               <p className="text-xs text-center py-4" style={{ color: '#94a3b8' }}>No products found</p>
             ) : (
-              filtered.map(p => (
-                <div key={p.id}
-                  onClick={() => { onChange(p.id); setOpen(false); setSearch('') }}
-                  className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
-                  style={{ background: value === String(p.id) ? '#eff6ff' : 'white', borderBottom: '1px solid #f8fafc' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
-                  <div>
-                    <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>{p.name}</p>
-                    <p className="text-xs" style={{ color: '#94a3b8' }}>Stock: {p.quantity} · RWF {p.sellingPrice?.toLocaleString()}</p>
+              filtered.map(p => {
+                const qty = displayQty(p)
+                return (
+                  <div key={p.id}
+                    onClick={() => { onChange(p.id); setOpen(false); setSearch('') }}
+                    className="px-3 py-2.5 cursor-pointer flex items-center justify-between"
+                    style={{ background: value === String(p.id) ? '#eff6ff' : 'white', borderBottom: '1px solid #f8fafc' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = value === String(p.id) ? '#eff6ff' : 'white'}>
+                    <div>
+                      <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>{p.name}</p>
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>
+                        Stock: {qty} · RWF {p.sellingPrice?.toLocaleString()}
+                      </p>
+                    </div>
+                    {qty <= 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                        style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>
+                    )}
+                    {qty > 0 && qty <= 5 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold"
+                        style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>
+                    )}
                   </div>
-                  {p.quantity <= 0 && <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold" style={{ background: '#fef2f2', color: '#ef4444' }}>Out</span>}
-                  {p.quantity > 0 && p.quantity <= 5 && <span className="text-xs px-1.5 py-0.5 rounded-md font-semibold" style={{ background: '#fef3c7', color: '#d97706' }}>Low</span>}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
@@ -84,9 +116,10 @@ function ProductSearch({ products, value, onChange }) {
 function Sales() {
   const { shopId, userId, hasPermission } = useAuth()
   const [sales, setSales] = useState([])
-  const [products, setProducts] = useState([])
+  const [products, setProducts] = useState([]) // products with main stock qty
   const [supplierId, setSupplierId] = useState('')
   const [suppliers, setSuppliers] = useState([])
+  const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('CASH')
@@ -122,10 +155,26 @@ function Sales() {
       .finally(() => setLoading(false))
   }
 
+  const fetchProductsWithMainStock = (locs) => {
+    Promise.all([
+      api.get(`/products/shop/${shopId}/active`),
+      api.get(`/stock-locations/shop/${shopId}/stock`)
+    ]).then(([productsRes, stockRes]) => {
+      const activeProducts = productsRes.data || []
+      const stockByLocation = stockRes.data || []
+      const withMainStock = buildProductsWithMainStock(activeProducts, stockByLocation, locs)
+      setProducts(withMainStock)
+    }).catch(err => console.error(err))
+  }
+
   useEffect(() => {
     fetchSales()
-    //api.get(`/products/shop/${shopId}?page=0&size=1000`).then(res => setProducts(res.data.content || []))
-    api.get(`/products/shop/${shopId}/active`).then(res => setProducts(res.data || []))
+    api.get(`/stock-locations/shop/${shopId}`)
+      .then(res => {
+        const locs = res.data || []
+        setLocations(locs)
+        fetchProductsWithMainStock(locs)
+      })
     api.get(`/suppliers/shop/${shopId}/all`).then(res => {
       const list = res.data
       const hasCashNorm = list.some(s => s.name === 'CashNorm')
@@ -164,7 +213,8 @@ function Sales() {
   const formTotal = formOriginal - formTotalDiscount
 
   const getBoughtAt = (sale) =>
-    sale.items?.reduce((sum, item) => sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0)), 0) || 0
+    sale.items?.reduce((sum, item) =>
+      sum + ((item.product?.buyingPrice || 0) * (item.quantity || 0)), 0) || 0
 
   const getProfit = (sale) => (sale.totalAmount || 0) - getBoughtAt(sale)
 
@@ -188,6 +238,8 @@ function Sales() {
       setPaymentMethod('CASH')
       setSupplierId('')
       fetchSales(0, pageSize)
+      // Refresh products with updated main stock
+      fetchProductsWithMainStock(locations)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create sale')
     } finally {
@@ -207,14 +259,12 @@ function Sales() {
     setCancelling(true)
     setCancelError('')
     try {
-      await api.post(`/sales/${saleToCancel.id}/cancel`, {
-        userId,
-        reason: cancelReason
-      })
+      await api.post(`/sales/${saleToCancel.id}/cancel`, { userId, reason: cancelReason })
       setShowCancelModal(false)
       setSaleToCancel(null)
       setCancelReason('')
       fetchSales(page, pageSize)
+      fetchProductsWithMainStock(locations)
     } catch (err) {
       setCancelError(err.response?.data?.message || 'Failed to cancel sale')
     } finally {
@@ -299,7 +349,9 @@ function Sales() {
                             </span>
                             {item.discountAmount > 0 && (
                               <span className="text-xs px-2" style={{ color: '#ef4444' }}>
-                                -{item.discountType === 'PERCENTAGE' ? `${item.discountValue}%` : `RWF ${item.discountAmount?.toLocaleString()}`}
+                                -{item.discountType === 'PERCENTAGE'
+                                  ? `${item.discountValue}%`
+                                  : `RWF ${item.discountAmount?.toLocaleString()}`}
                               </span>
                             )}
                           </div>
@@ -311,11 +363,14 @@ function Sales() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                        style={{ background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9', color: paymentColors[sale.paymentMethod]?.color || '#64748b' }}>
-                        {sale.paymentMethod}
-                      </span>
+                        style={{
+                          background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                          color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                        }}>{sale.paymentMethod}</span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>RWF {boughtAt.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
+                      RWF {boughtAt.toLocaleString()}
+                    </td>
                     <td className="px-4 py-3.5 font-bold text-sm" style={{ color: '#0f172a' }}>
                       RWF {sale.totalAmount?.toLocaleString()}
                       {sale.discountAmount > 0 && (
@@ -325,18 +380,24 @@ function Sales() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-xs font-semibold" style={{ color: '#ef4444' }}>
-                      {sale.discountAmount > 0 ? `- RWF ${sale.discountAmount?.toLocaleString()}` : <span style={{ color: '#cbd5e1' }}>—</span>}
+                      {sale.discountAmount > 0
+                        ? `- RWF ${sale.discountAmount?.toLocaleString()}`
+                        : <span style={{ color: '#cbd5e1' }}>—</span>}
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="px-2 py-1 rounded-lg text-xs font-bold"
-                        style={{ background: isProfit ? '#f0fdf4' : '#fef2f2', color: isProfit ? '#16a34a' : '#ef4444' }}>
+                        style={{
+                          background: isProfit ? '#f0fdf4' : '#fef2f2',
+                          color: isProfit ? '#16a34a' : '#ef4444'
+                        }}>
                         {isProfit ? '+' : ''}RWF {profit.toLocaleString()}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>{sale.user?.name || '—'}</td>
+                    <td className="px-4 py-3.5 text-xs" style={{ color: '#64748b' }}>
+                      {sale.user?.name || '—'}
+                    </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
-                        {/* Cancel button — only for users with CANCEL_SALES permission and same day */}
                         {canCancel && !isCancelled && (
                           <button onClick={() => openCancelModal(sale)}
                             className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold"
@@ -404,26 +465,26 @@ function Sales() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                      style={{ background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9', color: paymentColors[sale.paymentMethod]?.color || '#64748b' }}>
-                      {sale.paymentMethod}
-                    </span>
+                      style={{
+                        background: paymentColors[sale.paymentMethod]?.bg || '#f1f5f9',
+                        color: paymentColors[sale.paymentMethod]?.color || '#64748b'
+                      }}>{sale.paymentMethod}</span>
                     <button onClick={() => setSelectedSale(sale)}
                       className="p-2 rounded-lg" style={{ background: '#eff6ff', color: '#3b82f6' }}>
                       <MdPrint size={16} />
                     </button>
                   </div>
                 </div>
-
                 <div className="space-y-1 mb-3">
                   {sale.items?.map(item => (
                     <div key={item.id} className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded-full text-xs" style={{ background: '#f1f5f9', color: '#64748b' }}>
+                      <span className="px-2 py-0.5 rounded-full text-xs"
+                        style={{ background: '#f1f5f9', color: '#64748b' }}>
                         {item.product?.name} ×{item.quantity}
                       </span>
                     </div>
                   ))}
                 </div>
-
                 <div className="grid grid-cols-3 gap-2 pt-3" style={{ borderTop: '1px solid #f8fafc' }}>
                   <div>
                     <p className="text-xs mb-0.5" style={{ color: '#94a3b8' }}>Bought At</p>
@@ -442,8 +503,6 @@ function Sales() {
                     </p>
                   </div>
                 </div>
-
-                {/* Cancel button mobile */}
                 {canCancel && !isCancelled && (
                   <button onClick={() => openCancelModal(sale)}
                     className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold"
@@ -451,11 +510,8 @@ function Sales() {
                     <MdCancel size={14} /> Cancel Sale
                   </button>
                 )}
-
                 {isCancelled && sale.cancelReason && (
-                  <p className="mt-2 text-xs" style={{ color: '#ef4444' }}>
-                    Reason: {sale.cancelReason}
-                  </p>
+                  <p className="mt-2 text-xs" style={{ color: '#ef4444' }}>Reason: {sale.cancelReason}</p>
                 )}
               </div>
             )
@@ -476,11 +532,9 @@ function Sales() {
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl shadow-2xl"
             style={{ borderRadius: '20px 20px 0 0' }}>
-
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -494,21 +548,16 @@ function Sales() {
                 <MdClose size={20} />
               </button>
             </div>
-
             <div className="px-5 py-4 space-y-4">
               {cancelError && (
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{cancelError}</div>
               )}
-
-              {/* Warning */}
               <div className="rounded-xl p-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
                 <p className="text-xs font-semibold" style={{ color: '#d97706' }}>⚠️ This action will:</p>
                 <p className="text-xs mt-1" style={{ color: '#92400e' }}>• Mark this sale as CANCELLED</p>
-                <p className="text-xs" style={{ color: '#92400e' }}>• Restore stock for all items</p>
+                <p className="text-xs" style={{ color: '#92400e' }}>• Restore stock to main location</p>
                 <p className="text-xs" style={{ color: '#92400e' }}>• This cannot be undone</p>
               </div>
-
-              {/* Reason */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   Reason for cancellation *
@@ -521,8 +570,6 @@ function Sales() {
                   onFocus={e => e.target.style.borderColor = '#ef4444'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
               </div>
-
-              {/* Quick reasons */}
               <div className="flex flex-wrap gap-2">
                 {['Customer returned items', 'Wrong product selected', 'Duplicate sale', 'Customer changed mind'].map(r => (
                   <button key={r} onClick={() => setCancelReason(r)}
@@ -537,7 +584,6 @@ function Sales() {
                 ))}
               </div>
             </div>
-
             <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid #f1f5f9' }}>
               <button onClick={handleCancel}
                 disabled={cancelling || !cancelReason.trim()}
@@ -564,11 +610,9 @@ function Sales() {
           style={{ background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl shadow-2xl flex flex-col"
             style={{ borderRadius: '20px 20px 0 0', maxHeight: '92vh' }}>
-
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 rounded-full" style={{ background: '#e2e8f0' }} />
             </div>
-
             <div className="flex items-center justify-between px-5 py-4"
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
@@ -586,6 +630,7 @@ function Sales() {
                 <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl mb-4 text-sm">{error}</div>
               )}
 
+              {/* Payment Method */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Payment Method</label>
                 <div className="flex gap-2">
@@ -603,6 +648,7 @@ function Sales() {
                 </div>
               </div>
 
+              {/* Supplier */}
               <div className="mb-4">
                 <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Supplier / Customer</label>
                 <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
@@ -615,8 +661,16 @@ function Sales() {
                 </select>
               </div>
 
+              {/* Products */}
               <div className="mb-4">
-                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Products</label>
+                <label className="block text-xs font-semibold mb-2" style={{ color: '#64748b' }}>
+                  Products
+                  {locations.length > 1 && (
+                    <span className="ml-2 text-xs font-normal" style={{ color: '#94a3b8' }}>
+                      (showing main stock only)
+                    </span>
+                  )}
+                </label>
                 <div className="space-y-3">
                   {items.map((item, index) => {
                     const product = products.find(p => p.id === parseInt(item.productId))
@@ -690,7 +744,9 @@ function Sales() {
                             </span>
                             <span className="font-bold" style={{ color: '#0f172a' }}>
                               RWF {itemFinal.toLocaleString()}
-                              {itemDisc > 0 && <span className="ml-1 line-through font-normal" style={{ color: '#94a3b8' }}>RWF {itemSubtotal.toLocaleString()}</span>}
+                              {itemDisc > 0 && <span className="ml-1 line-through font-normal" style={{ color: '#94a3b8' }}>
+                                RWF {itemSubtotal.toLocaleString()}
+                              </span>}
                             </span>
                           </div>
                         )}
@@ -705,6 +761,7 @@ function Sales() {
                 </button>
               </div>
 
+              {/* Total Summary */}
               {formOriginal > 0 && (
                 <div className="rounded-xl p-4 space-y-2"
                   style={{ background: 'linear-gradient(135deg, #eff6ff, #e0f2fe)' }}>
@@ -721,7 +778,9 @@ function Sales() {
                   <div className="flex items-center justify-between pt-2"
                     style={{ borderTop: '1px solid rgba(59,130,246,0.2)' }}>
                     <span className="text-sm font-bold" style={{ color: '#64748b' }}>Total</span>
-                    <span className="text-xl font-bold" style={{ color: '#3b82f6' }}>RWF {formTotal.toLocaleString()}</span>
+                    <span className="text-xl font-bold" style={{ color: '#3b82f6' }}>
+                      RWF {formTotal.toLocaleString()}
+                    </span>
                   </div>
                 </div>
               )}
