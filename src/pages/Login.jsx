@@ -19,6 +19,54 @@ const PAGE_ROUTES = [
   { key: 'SETTINGS', path: '/settings' },
 ]
 
+// Logo mark — transparent, for placing directly on the dark navy panel
+function LogoMark({ size = 40 }) {
+  return (
+    <svg width={size} height={size * 1.1} viewBox="24 2 202 230" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <path d="M 34 162 L 49 222 L 211 222 L 226 162"
+        fill="none" stroke="url(#logoGrad)" strokeWidth="16"
+        strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="68" y="128" width="29" height="77" rx="7" fill="#ffffff" />
+      <rect x="113" y="81" width="29" height="124" rx="7" fill="#ffffff" />
+      <rect x="158" y="38" width="29" height="167" rx="7" fill="#ffffff" />
+      <path d="M 51 149 L 166 34" fill="none" stroke="url(#logoGrad)" strokeWidth="16" strokeLinecap="round" />
+      <path d="M 188 12 L 168 35 L 161 18 Z" fill="url(#logoGrad)" />
+    </svg>
+  )
+}
+
+// Logo badge — self-contained with navy background, for use on light backgrounds
+function LogoBadge({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"
+      style={{ borderRadius: '22%', flexShrink: 0 }}>
+      <defs>
+        <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="100%" stopColor="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="512" height="512" rx="115" fill="#0f172a" />
+      <g transform="translate(126,110)">
+        <path d="M 34 162 L 49 222 L 211 222 L 226 162"
+          fill="none" stroke="url(#badgeGrad)" strokeWidth="16"
+          strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="68" y="128" width="29" height="77" rx="7" fill="#ffffff" />
+        <rect x="113" y="81" width="29" height="124" rx="7" fill="#ffffff" />
+        <rect x="158" y="38" width="29" height="167" rx="7" fill="#ffffff" />
+        <path d="M 51 149 L 166 34" fill="none" stroke="url(#badgeGrad)" strokeWidth="16" strokeLinecap="round" />
+        <path d="M 188 12 L 168 35 L 161 18 Z" fill="url(#badgeGrad)" />
+      </g>
+    </svg>
+  )
+}
+
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -77,10 +125,7 @@ function Login() {
         </div>
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-lg"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-            B
-          </div>
+          <LogoMark size={40} />
           <div>
             <h1 className="font-bold text-white text-lg leading-tight">BizTrack</h1>
             <p className="text-xs" style={{ color: '#475569' }}>by INNOTEWO</p>
@@ -128,10 +173,7 @@ function Login() {
         <div className="w-full max-w-md">
 
           <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #3b82f6, #06b6d4)' }}>
-              B
-            </div>
+            <LogoBadge size={40} />
             <div>
               <h1 className="font-bold text-gray-800">BizTrack</h1>
               <p className="text-xs text-gray-400">by INNOTEWO</p>
