@@ -71,6 +71,15 @@ function ProductSearch({ products, value, onChange }) {
   )
 }
 
+// Default range: today back 30 days, formatted as yyyy-mm-dd for <input type="date">
+function getDefaultDateRange() {
+  const to = new Date()
+  const from = new Date()
+  from.setDate(from.getDate() - 30)
+  const fmt = (d) => d.toISOString().split('T')[0]
+  return { from: fmt(from), to: fmt(to) }
+}
+
 function StockTransfer() {
   const { shopId, userId, user } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
@@ -87,10 +96,11 @@ function StockTransfer() {
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
 
-  // Filters
+  // Filters — default to last 30 days, 20 rows per page
+  const defaultRange = getDefaultDateRange()
   const [search, setSearch] = useState('')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [dateFrom, setDateFrom] = useState(defaultRange.from)
+  const [dateTo, setDateTo] = useState(defaultRange.to)
 
   const [form, setForm] = useState({
     productId: '', fromLocationId: '', toLocationId: '', quantity: 1, note: ''
@@ -132,7 +142,7 @@ function StockTransfer() {
   }
 
   useEffect(() => {
-    fetchTransfers()
+    fetchTransfers(0, pageSize, search, dateFrom, dateTo)
     api.get(`/stock-locations/shop/${shopId}`)
       .then(res => setLocations(res.data || []))
     api.get(`/products/shop/${shopId}/active`)
@@ -148,10 +158,11 @@ function StockTransfer() {
   }, [search, dateFrom, dateTo])
 
   const clearFilters = () => {
+    const { from, to } = getDefaultDateRange()
     setSearch('')
-    setDateFrom('')
-    setDateTo('')
-    fetchTransfers(0, pageSize, '', '', '')
+    setDateFrom(from)
+    setDateTo(to)
+    fetchTransfers(0, pageSize, '', from, to)
   }
 
   // When product is selected, fetch its stock per location
@@ -297,15 +308,16 @@ function StockTransfer() {
               style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
               onFocus={e => e.target.style.borderColor = '#3b82f6'}
               onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
-            {(search || dateFrom || dateTo) && (
-              <button onClick={clearFilters}
-                className="px-3 rounded-xl text-xs font-semibold flex-shrink-0"
-                style={{ background: '#fef2f2', color: '#ef4444' }}>
-                Clear
-              </button>
-            )}
+            <button onClick={clearFilters}
+              className="px-3 rounded-xl text-xs font-semibold flex-shrink-0"
+              style={{ background: '#fef2f2', color: '#ef4444' }}>
+              Reset
+            </button>
           </div>
         </div>
+        <p className="text-xs mt-2" style={{ color: '#94a3b8' }}>
+          Showing last 30 days by default — widen the date range to see older transfers.
+        </p>
       </div>
 
       {/* DESKTOP TABLE */}
@@ -329,7 +341,7 @@ function StockTransfer() {
             ) : transfers.length === 0 ? (
               <tr><td colSpan="7" className="text-center py-16">
                 <MdSwapHoriz size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-                <p style={{ color: '#94a3b8' }}>No transfers found</p>
+                <p style={{ color: '#94a3b8' }}>No transfers found in this range</p>
               </td></tr>
             ) : (
               transfers.map((t, i) => (
@@ -388,7 +400,7 @@ function StockTransfer() {
         ) : transfers.length === 0 ? (
           <div className="text-center py-16">
             <MdSwapHoriz size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-            <p style={{ color: '#94a3b8' }}>No transfers found</p>
+            <p style={{ color: '#94a3b8' }}>No transfers found in this range</p>
           </div>
         ) : (
           transfers.map(t => (
