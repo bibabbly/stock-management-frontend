@@ -110,7 +110,7 @@ function StockMovements() {
     productId: '', supplierId: '', quantity: 1, note: '', locationId: ''
   })
   const [stockOutForm, setStockOutForm] = useState({
-    productId: '', quantity: 1, reason: ''
+    productId: '', quantity: 1, reason: '', locationId: ''
   })
 
   const fetchMovements = (pageNum = 0, type = 'ALL', searchVal = '', size = 20) => {
@@ -204,6 +204,10 @@ function StockMovements() {
       setError('Reason is mandatory for manual stock out')
       return
     }
+    if (locations.length > 1 && !stockOutForm.locationId) {
+      setError('Please select a location to deduct from')
+      return
+    }
     setError('')
     setSubmitting(true)
     try {
@@ -211,10 +215,11 @@ function StockMovements() {
         shopId, userId,
         productId: parseInt(stockOutForm.productId),
         quantity: parseInt(stockOutForm.quantity),
-        reason: stockOutForm.reason
+        reason: stockOutForm.reason,
+        locationId: stockOutForm.locationId ? parseInt(stockOutForm.locationId) : null
       })
       setShowStockOutModal(false)
-      setStockOutForm({ productId: '', quantity: 1, reason: '' })
+      setStockOutForm({ productId: '', quantity: 1, reason: '', locationId: '' })
       fetchMovements(0, activeTab === 'BALANCE' ? 'ALL' : activeTab, search, pageSize)
       fetchSummary()
       fetchBalance()
@@ -641,14 +646,12 @@ function StockMovements() {
             <div className="px-5 py-4 space-y-4">
               {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
 
-              {/* Product */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <ProductSearch products={activeProducts} value={restockForm.productId}
                   onChange={(val) => setRestockForm({ ...restockForm, productId: val })} />
               </div>
 
-              {/* Supplier */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   Supplier <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional)</span>
@@ -686,7 +689,6 @@ function StockMovements() {
                 </div>
               )}
 
-              {/* Quantity */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -705,7 +707,6 @@ function StockMovements() {
                 </div>
               </div>
 
-              {/* Note */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Note</label>
                 <input type="text" value={restockForm.note}
@@ -751,22 +752,51 @@ function StockMovements() {
                 <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>Manual Stock Out</h2>
                 <p className="text-xs" style={{ color: '#94a3b8' }}>Record stolen, expired or damaged stock</p>
               </div>
-              <button onClick={() => { setShowStockOutModal(false); setError(''); setStockOutForm({ productId: '', quantity: 1, reason: '' }) }}
+              <button onClick={() => {
+                setShowStockOutModal(false)
+                setError('')
+                setStockOutForm({ productId: '', quantity: 1, reason: '', locationId: '' })
+              }}
                 className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
                 <MdClose size={20} />
               </button>
             </div>
             <div className="px-5 py-4 space-y-4">
               {error && <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-sm">{error}</div>}
+
               <div className="rounded-xl p-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
                 <p className="text-xs font-semibold" style={{ color: '#d97706' }}>⚠️ This will reduce stock permanently</p>
                 <p className="text-xs mt-1" style={{ color: '#92400e' }}>Use for: stolen goods, expired items, damaged stock</p>
               </div>
+
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Product</label>
                 <ProductSearch products={activeProducts} value={stockOutForm.productId}
                   onChange={(val) => setStockOutForm({ ...stockOutForm, productId: val })} />
               </div>
+
+              {/* Location selector — only show if multiple locations */}
+              {locations.length > 1 && (
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
+                    Deduct From <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <select value={stockOutForm.locationId}
+                    onChange={e => setStockOutForm({ ...stockOutForm, locationId: e.target.value })}
+                    className="w-full rounded-xl px-3 py-3 text-sm focus:outline-none"
+                    style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+                    onFocus={e => e.target.style.borderColor = '#ef4444'}
+                    onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
+                    <option value="">Select location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.isMain ? '🏪' : '🏭'} {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>Quantity</label>
                 <div className="flex items-center gap-3">
@@ -784,6 +814,7 @@ function StockMovements() {
                     style={{ background: '#ef4444', color: 'white' }}>+</button>
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   Reason <span style={{ color: '#ef4444' }}>*</span>
@@ -822,7 +853,11 @@ function StockMovements() {
                 }}>
                 {submitting ? 'Saving...' : 'Confirm Stock Out'}
               </button>
-              <button onClick={() => { setShowStockOutModal(false); setError(''); setStockOutForm({ productId: '', quantity: 1, reason: '' }) }}
+              <button onClick={() => {
+                setShowStockOutModal(false)
+                setError('')
+                setStockOutForm({ productId: '', quantity: 1, reason: '', locationId: '' })
+              }}
                 className="px-5 py-3 rounded-xl font-semibold text-sm"
                 style={{ background: '#f1f5f9', color: '#64748b' }}>
                 Cancel
