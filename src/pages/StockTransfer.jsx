@@ -95,10 +95,10 @@ function StockTransfer() {
 
   // Which locations this user is allowed to pick as source/destination
   const allowedFromLocations = isAdmin
-    ? locations.filter(l => l.isMain)
+    ? locations
     : locations.filter(l => !l.isMain)
   const allowedToLocations = isAdmin
-    ? locations.filter(l => !l.isMain)
+    ? locations
     : locations.filter(l => l.isMain)
 
   // Non-admins never see Main/shop quantity
