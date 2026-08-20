@@ -72,8 +72,8 @@ function ProductSearch({ products, value, onChange }) {
 }
 
 function StockTransfer() {
- const { shopId, userId, user } = useAuth()
- const isAdmin = user?.role === 'ADMIN'
+  const { shopId, userId, user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
 
   const [transfers, setTransfers] = useState([])
   const [locations, setLocations] = useState([])
@@ -86,6 +86,12 @@ function StockTransfer() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  // Filters
+  const [search, setSearch] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
   const [form, setForm] = useState({
     productId: '', fromLocationId: '', toLocationId: '', quantity: 1, note: ''
   })
@@ -106,9 +112,14 @@ function StockTransfer() {
     ? productStock
     : productStock.filter(ps => !ps.location.isMain)
 
-  const fetchTransfers = (pageNum = 0, size = pageSize) => {
+  const fetchTransfers = (pageNum = 0, size = pageSize, searchVal = search, from = dateFrom, to = dateTo) => {
     setLoading(true)
-    api.get(`/stock-transfers/shop/${shopId}?page=${pageNum}&size=${size}`)
+    const params = new URLSearchParams({ page: pageNum, size })
+    if (searchVal) params.append('search', searchVal)
+    if (from) params.append('startDate', from)
+    if (to) params.append('endDate', to)
+
+    api.get(`/stock-transfers/shop/${shopId}?${params.toString()}`)
       .then(res => {
         setTransfers(res.data.content || [])
         setTotalPages(res.data.totalPages || 0)
@@ -127,6 +138,21 @@ function StockTransfer() {
     api.get(`/products/shop/${shopId}/active`)
       .then(res => setProducts(res.data || []))
   }, [])
+
+  // Debounced search + auto-refetch when filters change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTransfers(0, pageSize, search, dateFrom, dateTo)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [search, dateFrom, dateTo])
+
+  const clearFilters = () => {
+    setSearch('')
+    setDateFrom('')
+    setDateTo('')
+    fetchTransfers(0, pageSize, '', '', '')
+  }
 
   // When product is selected, fetch its stock per location
   useEffect(() => {
@@ -172,7 +198,7 @@ function StockTransfer() {
       setShowModal(false)
       setForm({ productId: '', fromLocationId: '', toLocationId: '', quantity: 1, note: '' })
       setProductStock([])
-      fetchTransfers()
+      fetchTransfers(0, pageSize, search, dateFrom, dateTo)
     } catch (err) {
       setError(err.response?.data?.message || 'Transfer failed')
     } finally {
@@ -240,6 +266,48 @@ function StockTransfer() {
         </div>
       )}
 
+      {/* Filters: search + date range */}
+      <div className="bg-white rounded-xl p-4 mb-4"
+        style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="sm:col-span-2 flex items-center gap-2 px-3 rounded-xl"
+            style={{ border: '2px solid #f1f5f9', background: '#f8fafc' }}>
+            <MdSearch size={18} style={{ color: '#94a3b8' }} />
+            <input type="text" placeholder="Search by product name..."
+              value={search} onChange={e => setSearch(e.target.value)}
+              className="flex-1 py-2.5 text-sm focus:outline-none" style={{ background: 'transparent', color: '#0f172a' }} />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ color: '#94a3b8' }}>
+                <MdClose size={16} />
+              </button>
+            )}
+          </div>
+          <div>
+            <input type="date" value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+              onFocus={e => e.target.style.borderColor = '#3b82f6'}
+              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+          </div>
+          <div className="flex gap-2">
+            <input type="date" value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+              style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
+              onFocus={e => e.target.style.borderColor = '#3b82f6'}
+              onBlur={e => e.target.style.borderColor = '#f1f5f9'} />
+            {(search || dateFrom || dateTo) && (
+              <button onClick={clearFilters}
+                className="px-3 rounded-xl text-xs font-semibold flex-shrink-0"
+                style={{ background: '#fef2f2', color: '#ef4444' }}>
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* DESKTOP TABLE */}
       <div className="hidden md:block bg-white rounded-xl overflow-hidden"
         style={{ border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -261,7 +329,7 @@ function StockTransfer() {
             ) : transfers.length === 0 ? (
               <tr><td colSpan="7" className="text-center py-16">
                 <MdSwapHoriz size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-                <p style={{ color: '#94a3b8' }}>No transfers yet</p>
+                <p style={{ color: '#94a3b8' }}>No transfers found</p>
               </td></tr>
             ) : (
               transfers.map((t, i) => (
@@ -320,7 +388,7 @@ function StockTransfer() {
         ) : transfers.length === 0 ? (
           <div className="text-center py-16">
             <MdSwapHoriz size={40} style={{ color: '#e2e8f0', margin: '0 auto 8px' }} />
-            <p style={{ color: '#94a3b8' }}>No transfers yet</p>
+            <p style={{ color: '#94a3b8' }}>No transfers found</p>
           </div>
         ) : (
           transfers.map(t => (
@@ -356,8 +424,8 @@ function StockTransfer() {
       <Pagination
         page={page} totalPages={totalPages} totalElements={totalElements}
         pageSize={pageSize}
-        onPageChange={(p) => fetchTransfers(p, pageSize)}
-        onPageSizeChange={(s) => fetchTransfers(0, s)}
+        onPageChange={(p) => fetchTransfers(p, pageSize, search, dateFrom, dateTo)}
+        onPageSizeChange={(s) => fetchTransfers(0, s, search, dateFrom, dateTo)}
       />
 
       {/* TRANSFER MODAL */}
