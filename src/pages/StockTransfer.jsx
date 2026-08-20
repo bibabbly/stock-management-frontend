@@ -72,8 +72,8 @@ function ProductSearch({ products, value, onChange }) {
 }
 
 function StockTransfer() {
-  const { shopId, userId, role } = useAuth()
-  const isAdmin = role === 'ADMIN'
+ const { shopId, userId, user } = useAuth()
+ const isAdmin = user?.role === 'ADMIN'
 
   const [transfers, setTransfers] = useState([])
   const [locations, setLocations] = useState([])
