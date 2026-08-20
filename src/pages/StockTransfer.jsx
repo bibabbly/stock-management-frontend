@@ -72,7 +72,9 @@ function ProductSearch({ products, value, onChange }) {
 }
 
 function StockTransfer() {
-  const { shopId, userId } = useAuth()
+  const { shopId, userId, role } = useAuth()
+  const isAdmin = role === 'ADMIN'
+
   const [transfers, setTransfers] = useState([])
   const [locations, setLocations] = useState([])
   const [products, setProducts] = useState([])
@@ -90,6 +92,19 @@ function StockTransfer() {
 
   // Stock info for selected product
   const [productStock, setProductStock] = useState([])
+
+  // Which locations this user is allowed to pick as source/destination
+  const allowedFromLocations = isAdmin
+    ? locations.filter(l => l.isMain)
+    : locations.filter(l => !l.isMain)
+  const allowedToLocations = isAdmin
+    ? locations.filter(l => !l.isMain)
+    : locations.filter(l => l.isMain)
+
+  // Non-admins never see Main/shop quantity
+  const visibleProductStock = isAdmin
+    ? productStock
+    : productStock.filter(ps => !ps.location.isMain)
 
   const fetchTransfers = (pageNum = 0, size = pageSize) => {
     setLoading(true)
@@ -174,7 +189,9 @@ function StockTransfer() {
           <p className="text-xs" style={{ color: '#94a3b8' }}>
             {locations.length <= 1
               ? 'Add a second location in Settings to enable transfers'
-              : `Transfer stock between your ${locations.length} locations`}
+              : isAdmin
+                ? 'Send stock from Main to Warehouse'
+                : 'Send stock from Warehouse to Main'}
           </p>
         </div>
         {locations.length > 1 && (
@@ -358,7 +375,9 @@ function StockTransfer() {
               style={{ borderBottom: '1px solid #f1f5f9' }}>
               <div>
                 <h2 className="text-base font-bold" style={{ color: '#0f172a' }}>New Stock Transfer</h2>
-                <p className="text-xs" style={{ color: '#94a3b8' }}>Move stock between locations</p>
+                <p className="text-xs" style={{ color: '#94a3b8' }}>
+                  {isAdmin ? 'Send stock from Main to Warehouse' : 'Send stock from Warehouse to Main'}
+                </p>
               </div>
               <button onClick={() => { setShowModal(false); setError('') }}
                 className="p-2 rounded-xl" style={{ color: '#94a3b8', background: '#f8fafc' }}>
@@ -383,12 +402,12 @@ function StockTransfer() {
                 />
               </div>
 
-              {/* Stock per location info */}
-              {form.productId && productStock.length > 0 && (
+              {/* Stock per location info — Main/shop quantity hidden from non-admins */}
+              {form.productId && visibleProductStock.length > 0 && (
                 <div className="rounded-xl p-3 space-y-1"
                   style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <p className="text-xs font-semibold mb-2" style={{ color: '#64748b' }}>Current Stock:</p>
-                  {productStock.map(ps => (
+                  {visibleProductStock.map(ps => (
                     <div key={ps.location.id} className="flex justify-between text-xs">
                       <span style={{ color: '#64748b' }}>{ps.location.name}</span>
                       <span className="font-bold" style={{ color: ps.quantity > 0 ? '#16a34a' : '#ef4444' }}>
@@ -399,7 +418,7 @@ function StockTransfer() {
                 </div>
               )}
 
-              {/* From Location */}
+              {/* From Location — restricted to the direction this role is allowed */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   From Location <span style={{ color: '#ef4444' }}>*</span>
@@ -411,7 +430,7 @@ function StockTransfer() {
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
                   <option value="">Select source location</option>
-                  {locations.map(loc => (
+                  {allowedFromLocations.map(loc => (
                     <option key={loc.id} value={loc.id}>
                       {loc.name} {form.productId ? `(${getStockForLocation(loc.id)} units)` : ''}
                     </option>
@@ -419,7 +438,7 @@ function StockTransfer() {
                 </select>
               </div>
 
-              {/* To Location */}
+              {/* To Location — restricted to the direction this role is allowed */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: '#64748b' }}>
                   To Location <span style={{ color: '#ef4444' }}>*</span>
@@ -431,7 +450,7 @@ function StockTransfer() {
                   onFocus={e => e.target.style.borderColor = '#3b82f6'}
                   onBlur={e => e.target.style.borderColor = '#f1f5f9'}>
                   <option value="">Select destination location</option>
-                  {locations
+                  {allowedToLocations
                     .filter(loc => String(loc.id) !== String(form.fromLocationId))
                     .map(loc => (
                       <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -450,7 +469,6 @@ function StockTransfer() {
                     style={{ background: '#f1f5f9', color: '#64748b' }}>−</button>
                   <input type="number" min="1" value={form.quantity}
                     onChange={e => setForm({ ...form, quantity: parseInt(e.target.value) || 1 })}
-                    onFocus={e => e.target.select()}
                     className="flex-1 rounded-xl px-3 py-3 text-sm focus:outline-none text-center font-bold"
                     style={{ border: '2px solid #f1f5f9', background: '#f8fafc', color: '#0f172a' }}
                     onFocus={e => { e.target.select(); e.target.style.borderColor = '#3b82f6' }}
